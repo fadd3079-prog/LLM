@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>AI Workspace</title>
+    <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/modal.css">
+    <link rel="stylesheet" href="css/animations.css">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+
+<body>
+    <div class="layout-wrapper">
+
+        <aside id="sidebar" class="app-sidebar sidebar" aria-label="Sidebar Navigasi">
+            <header class="sidebar-header">
+                <div class="brand">
+                    <img src="assets/logo.svg" alt="AI Workspace Logo" class="brand-logo">
+                    <span class="brand-text">AI Workspace</span>
+                </div>
+                <button id="btn-collapse-sidebar" class="icon-button" aria-label="Tutup Sidebar" title="Tutup Sidebar">
+                    <i data-lucide="panel-left-close"></i>
+                </button>
+            </header>
+
+            <div class="sidebar-action-area">
+                <button id="btn-new-chat" class="nav-button primary-action" aria-label="Mulai chat">
+                    <i data-lucide="plus"></i>
+                    <span>New Chat</span>
+                </button>
+            </div>
+
+            <div class="sidebar-scroll-area">
+                <section class="sidebar-section pinned-section" aria-label="Percakapan Disematkan">
+                    <div class="section-header">
+                        <h3>Disematkan</h3>
+                    </div>
+                    <ul id="pinned-chats-list" class="chat-list" role="list"></ul>
+                </section>
+
+                <section class="sidebar-section history-section" aria-label="Riwayat Percakapan">
+                    <div class="section-header">
+                        <h3>Riwayat</h3>
+                    </div>
+                    <ul id="chat-history-list" class="chat-list" role="list"></ul>
+                </section>
+            </div>
+
+            <footer class="sidebar-footer">
+                <div class="user-profile">
+                    <div class="avatar" aria-hidden="true">
+                        <i data-lucide="user"></i>
+                    </div>
+                    <div class="user-info">
+                        <span class="user-name">Pengguna API</span>
+                        <span class="user-status" id="api-status">Belum Terhubung</span>
+                    </div>
+                    <button id="btn-settings" class="icon-button" aria-label="Buka Pengaturan" title="Pengaturan">
+                        <i data-lucide="settings"></i>
+                    </button>
+                </div>
+            </footer>
+        </aside>
+
+        <div id="sidebar-backdrop" class="sidebar-backdrop" aria-hidden="true"></div>
+
+        <main id="main-content" class="app-main main-content main-container">
+            <header class="main-header">
+                <div class="header-left">
+                    <button id="btn-open-sidebar" class="icon-button" aria-label="Buka Sidebar" title="Buka Sidebar">
+                        <i data-lucide="menu"></i>
+                    </button>
+                    <div class="header-model-info" id="active-model-display" aria-live="polite"></div>
+                </div>
+            </header>
+
+            <div id="drop-overlay" class="drop-overlay hidden" aria-hidden="true">
+                <div class="drop-overlay-box">
+                    <div class="drop-icon-wrapper">
+                        <i data-lucide="upload-cloud"></i>
+                    </div>
+                    <p class="drop-title">Lepaskan file di sini</p>
+                    <p class="drop-subtitle">Mendukung Gambar, PDF, ZIP, Dokumen, dan Kode (maks 30MB)</p>
+                </div>
+            </div>
+
+            <div id="chat-canvas" class="chat-canvas" role="log" aria-live="polite" aria-label="Jendela Percakapan">
+                <div class="chat-canvas-inner">
+
+                    <div id="empty-state" class="empty-state">
+                        <div class="hero-brand">
+                            <img src="assets/logo.svg" alt="AI Workspace Logo" class="hero-logo">
+                        </div>
+                        <h1 class="hero-title">Meet your thinking partner</h1>
+                        <p class="hero-subtitle">Silakan atur Provider dan API Key di <button
+                                id="btn-open-settings-prompt" class="inline-link-button">Pengaturan</button> untuk
+                            memulai</p>
+                        <div class="suggestion-grid">
+                            <button class="suggestion-card"
+                                data-prompt="Tolong buatkan ringkasan eksekutif dari teks berikut. Sajikan dalam format:&#10;1. Ikhtisar Inti (2-3 kalimat)&#10;2. Poin-Poin Utama&#10;3. Action Items / Rekomendasi&#10;&#10;[Tempelkan teks atau dokumen di sini]">
+                                <span class="suggestion-title">Ringkasan Eksekutif</span>
+                                <span class="suggestion-desc">Ekstrak poin kunci & action items dari teks</span>
+                            </button>
+                            <button class="suggestion-card"
+                                data-prompt="Tolong tinjau dan refactor kode berikut agar lebih bersih, efisien, dan mengikuti best practices:&#10;&#10;```&#10;[Tempelkan kode di sini]&#10;```&#10;&#10;Sertakan penjelasan singkat tentang perbaikan yang dilakukan.">
+                                <span class="suggestion-title">Refactor & Optimasi Kode</span>
+                                <span class="suggestion-desc">Tingkatkan efisiensi, struktur, dan clean code</span>
+                            </button>
+                            <button class="suggestion-card"
+                                data-prompt="Bantu saya menyusun draft komunikasi profesional mengenai:&#10;- Topik: [Tuliskan topik utama]&#10;- Audiens: [Klien / Tim / Manajemen]&#10;- Poin Penting: [Poin-poin yang ingin disampaikan]&#10;&#10;Gunakan gaya bahasa formal, lugas, dan terstruktur.">
+                                <span class="suggestion-title">Draft Komunikasi Bisnis</span>
+                                <span class="suggestion-desc">Susun email atau pesan kerja yang persuasif</span>
+                            </button>
+                            <button class="suggestion-card"
+                                data-prompt="Saya sedang menghadapi kendala berikut:&#10;[Jelaskan masalah atau tantangan yang dihadapi]&#10;&#10;Bantu saya menganalisis:&#10;1. Kemungkinan Akar Masalah (Root Cause)&#10;2. Alternatif Solusi & Trade-off&#10;3. Langkah Implementasi yang Direkomendasikan">
+                                <span class="suggestion-title">Analisis Masalah & Solusi</span>
+                                <span class="suggestion-desc">Bedah root cause dan alternatif penyelesaian</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="messages-container" class="messages-container hidden"></div>
+                    <div id="scroll-anchor" class="scroll-anchor" aria-hidden="true"></div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-area-inner">
+                    <button id="btn-scroll-bottom" class="scroll-bottom-btn hidden" aria-label="Kembali ke bawah"
+                        title="Kembali ke bawah">
+                        <i data-lucide="arrow-down"></i>
+                    </button>
+                    <div id="image-preview-tray" class="image-preview-tray hidden"
+                        aria-label="Pratinjau lampiran gambar"></div>
+                    <div class="input-wrapper">
+                        <button id="btn-attach" class="icon-button attach-btn" aria-label="Lampirkan Berkas"
+                            title="Lampirkan Berkas (Gambar, PDF, ZIP, Dokumen, Kode)">
+                            <i data-lucide="paperclip"></i>
+                        </button>
+                        <input type="file" id="file-input" class="hidden" accept="*" multiple>
+                        <textarea id="chat-input" class="chat-input" placeholder="Ketik perintah..." rows="1"
+                            aria-label="Input pesan"></textarea>
+                        <button id="btn-send" class="icon-button send-btn" aria-label="Kirim Pesan" title="Kirim Pesan"
+                            disabled>
+                            <i data-lucide="arrow-up"></i>
+                        </button>
+                    </div>
+                    <div class="input-footer">
+                        Model AI dapat menghasilkan informasi yang kurang akurat. Harap verifikasi informasi penting.
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <dialog id="settings-modal" class="settings-modal" aria-modal="true" aria-labelledby="settings-modal-title">
+        <div class="modal-content">
+            <header class="modal-header">
+                <div class="modal-header-titles">
+                    <h2 id="settings-modal-title" class="modal-title">Pengaturan</h2>
+                </div>
+                <button id="btn-close-modal" class="icon-button" aria-label="Tutup Pengaturan" title="Tutup">
+                    <i data-lucide="x"></i>
+                </button>
+            </header>
+
+            <div class="modal-body">
+                <nav class="modal-nav" role="tablist" aria-label="Tab Pengaturan">
+                    <button role="tab" id="tab-general" class="nav-tab tab-button active" data-tab="general"
+                        aria-selected="true" aria-controls="panel-general">
+                        <i data-lucide="sliders-horizontal"></i>
+                        <span>Umum</span>
+                    </button>
+                    <button role="tab" id="tab-appearance" class="nav-tab tab-button" data-tab="appearance"
+                        aria-selected="false" aria-controls="panel-appearance">
+                        <i data-lucide="palette"></i>
+                        <span>Tema</span>
+                    </button>
+                    <button role="tab" id="tab-api" class="nav-tab tab-button" data-tab="api" aria-selected="false"
+                        aria-controls="panel-api">
+                        <i data-lucide="key"></i>
+                        <span>API & Model</span>
+                    </button>
+                </nav>
+
+                <div class="modal-panels">
+
+                    <div role="tabpanel" id="panel-general" class="tab-panel active" aria-labelledby="tab-general">
+                        <div class="settings-card">
+                            <div class="section-title">
+                                <div class="title-with-status">
+                                    <h3>Personalisasi</h3>
+                                    <span class="status-badge-mini" id="system-prompt-status">
+                                        <i data-lucide="check" style="width:12px;height:12px;"></i> Tersimpan
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <textarea id="system-prompt" rows="3"
+                                    placeholder="Contoh: Anda adalah asisten AI yang cerdas, ramah, dan membantu..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="settings-card">
+                            <div class="section-title">
+                                <h3>Parameter Generasi</h3>
+                            </div>
+                            <div class="input-group">
+                                <div class="label-with-value">
+                                    <label for="temperature">Temperature</label>
+                                    <span class="range-badge" id="temperature-value">0.7</span>
+                                </div>
+                                <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7">
+                                <div class="range-endpoints">
+                                    <span>0.0 (Presisi & Faktual)</span>
+                                    <span>2.0 (Sangat Kreatif)</span>
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <div class="label-with-value">
+                                    <label for="max-tokens">Max Tokens</label>
+                                    <span class="range-badge" id="max-tokens-value">2048</span>
+                                </div>
+                                <input type="range" id="max-tokens" min="256" max="8192" step="256" value="2048">
+                                <div class="range-endpoints">
+                                    <span>256</span>
+                                    <span>8192</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="settings-card danger-card">
+                            <div class="section-title">
+                                <h3>Data Percakapan</h3>
+                                <p>Hapus seluruh riwayat chat yang tersimpan secara lokal di browser Anda.</p>
+                            </div>
+                            <button id="btn-clear-all" class="button-danger" type="button">
+                                <i data-lucide="trash-2"></i>
+                                <span>Hapus Semua Percakapan</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div role="tabpanel" id="panel-appearance" class="tab-panel" aria-labelledby="tab-appearance">
+                        <div class="settings-card">
+                            <div class="section-title">
+                                <h3>Pilih Tema</h3>
+                            </div>
+                            <div class="theme-options">
+                                <button id="theme-light" class="theme-option" data-theme="light" type="button"
+                                    aria-pressed="false">
+                                    <div class="theme-preview light">
+                                        <div class="mini-ui">
+                                            <div class="mini-sidebar"></div>
+                                            <div class="mini-main">
+                                                <div class="mini-bubble"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="theme-info">
+                                        <div class="theme-name-row">
+                                            <i data-lucide="sun"></i>
+                                            <span class="theme-name">Light</span>
+                                        </div>
+                                        <span class="theme-desc">Gallery Off-White</span>
+                                    </div>
+                                </button>
+                                <button id="theme-dark" class="theme-option" data-theme="dark" type="button"
+                                    aria-pressed="false">
+                                    <div class="theme-preview dark">
+                                        <div class="mini-ui">
+                                            <div class="mini-sidebar"></div>
+                                            <div class="mini-main">
+                                                <div class="mini-bubble"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="theme-info">
+                                        <div class="theme-name-row">
+                                            <i data-lucide="moon"></i>
+                                            <span class="theme-name">Dark</span>
+                                        </div>
+                                        <span class="theme-desc">OLED Obsidian</span>
+                                    </div>
+                                </button>
+                                <button id="theme-system" class="theme-option" data-theme="system" type="button"
+                                    aria-pressed="false">
+                                    <div class="theme-preview system">
+                                        <div class="mini-ui">
+                                            <div class="mini-sidebar"></div>
+                                            <div class="mini-main">
+                                                <div class="mini-bubble"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="theme-info">
+                                        <div class="theme-name-row">
+                                            <i data-lucide="monitor"></i>
+                                            <span class="theme-name">System</span>
+                                        </div>
+                                        <span class="theme-desc">Ikuti Tema OS</span>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div role="tabpanel" id="panel-api" class="tab-panel" aria-labelledby="tab-api">
+                        <div class="settings-card">
+                            <div class="section-title">
+                                <div class="title-with-status">
+                                    <h3>Koneksi API & Model</h3>
+                                    <div class="status-indicator-bar" id="modal-status-bar">
+                                        <span class="status-dot"></span>
+                                        <span class="status-label" id="modal-api-status">Belum Terhubung</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="modal-provider">Penyedia Layanan (Provider)</label>
+                                <div class="select-wrapper">
+                                    <select id="modal-provider" class="custom-select">
+                                        <option value="openrouter">OpenRouter (favorit)</option>
+                                        <option value="nvidia">NVIDIA NIM</option>
+                                    </select>
+                                    <i data-lucide="chevron-down" class="select-chevron"></i>
+                                </div>
+                            </div>
+
+                            <div class="input-group">
+                                <div class="label-with-link">
+                                    <label for="modal-api-key">API Key</label>
+                                    <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer"
+                                        class="api-help-link">
+                                        Dapatkan API Key OpenRouter
+                                    </a>
+                                </div>
+                                <div class="password-wrapper">
+                                    <input type="password" id="modal-api-key" placeholder="sk-or-v1-..."
+                                        autocomplete="off" spellcheck="false">
+                                    <button id="btn-modal-toggle-key" class="icon-button small toggle-password-btn"
+                                        aria-label="Tampilkan / Sembunyikan API Key" type="button">
+                                        <i data-lucide="eye"></i>
+                                    </button>
+                                </div>
+                                <span class="field-hint">Kunci API disimpan secara aman dan privat di LocalStorage
+                                    browser Anda.</span>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="modal-model-search">Model AI Aktif</label>
+                                <div class="model-selector-wrapper">
+                                    <div class="model-input-box">
+                                        <i data-lucide="sparkles" class="model-input-icon"></i>
+                                        <input type="text" id="modal-model-search"
+                                            placeholder="Pilih atau cari model AI..." autocomplete="off">
+                                        <i data-lucide="chevron-down" class="dropdown-icon"></i>
+                                    </div>
+                                    <ul id="modal-model-dropdown" class="dropdown-list hidden"></ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </dialog>
+
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+    <script type="module" src="js/app.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,82 @@
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+body {
+    font-family: var(--font-sans);
+    font-size: var(--body-md-size);
+    line-height: var(--body-md-lh);
+    color: var(--color-ink);
+    background-color: var(--color-canvas);
+    transition: var(--theme-transition);
+    overflow: hidden;
+    height: 100dvh;
+    width: 100vw;
+}
+
+svg.lucide, i[data-lucide] svg {
+    stroke-width: 1.5px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+button, input, textarea, select {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    outline: none;
+}
+
+button {
+    cursor: pointer;
+    user-select: none;
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+a {
+    color: var(--color-coral);
+    text-decoration: none;
+    transition: opacity 0.15s ease;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-sans);
+    color: var(--color-ink);
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    line-height: 1.15;
+}
+
+p {
+    margin-bottom: var(--spacing-sm);
+    color: var(--color-body);
+}
+
+b, strong {
+    font-weight: 600;
+    color: var(--color-ink);
+}
+
+.hidden {
+    display: none !important;
+}
