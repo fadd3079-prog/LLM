@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    const inputUI = initInputUI((text, attachments) => {
+    const chatInputControls = initInputUI((text, attachments) => {
         handleSendMessage(text, attachments);
     });
 
@@ -92,74 +92,83 @@ document.addEventListener('DOMContentLoaded', () => {
         state.isGenerating = true;
         chatInputControls.enableInput(false);
 
-        const initialPrefix = isContinuation && assistantMsg.content ? assistantMsg.content.trim() : '';
+        try {
+            const initialPrefix = isContinuation && assistantMsg.content ? assistantMsg.content.trim() : '';
 
-        if (isContinuation) {
-            resumeStreamingMessage(initialPrefix);
-        } else {
-            appendStreamingMessage();
-        }
-
-        const messagesForApi = [];
-        if (state.config.systemPrompt) {
-            messagesForApi.push({ role: 'system', content: state.config.systemPrompt });
-        }
-
-        for (const m of chat.messages) {
-            if (m.id === assistantMsg.id) break;
-            messagesForApi.push({ role: m.role, content: m.content, attachments: m.attachments });
-        }
-
-        if (initialPrefix) {
-            messagesForApi.push({ role: 'assistant', content: initialPrefix });
-            messagesForApi.push({
-                role: 'user',
-                content: 'Lanjutkan jawaban Anda dari titik terakhir di atas tanpa mengulang kalimat yang sudah ditulis.'
-            });
-        }
-
-        let lastSave = 0;
-        const throttledSave = (text) => {
-            assistantMsg.content = text;
-            const now = Date.now();
-            if (now - lastSave > 500) {
-                lastSave = now;
-                saveStore();
+            if (isContinuation) {
+                resumeStreamingMessage(initialPrefix);
+            } else {
+                appendStreamingMessage();
             }
-        };
 
-        await streamChat(
-            messagesForApi,
-            state.config.provider,
-            state.config.apiKey,
-            state.selectedModel,
-            (chunkText) => {
-                const fullText = initialPrefix ? (initialPrefix + '\n\n' + chunkText) : chunkText;
-                throttledSave(fullText);
-                updateStreamingMessage(fullText);
-            },
-            (finalText) => {
-                const fullText = initialPrefix ? (initialPrefix + '\n\n' + finalText) : finalText;
-                assistantMsg.content = fullText;
-                state.activeStream = null;
-                saveStore();
-                finalizeStreamingMessage();
-                state.isGenerating = false;
-                chatInputControls.enableInput(true);
-            },
-            (error) => {
-                state.activeStream = null;
-                saveStore();
-                finalizeStreamingMessage();
-                updateStreamingMessage(`${assistantMsg.content}\n\n**[Terputus]:** ${error}`);
-                state.isGenerating = false;
-                chatInputControls.enableInput(true);
-            },
-            {
-                maxTokens: state.maxTokens,
-                temperature: state.temperature
+            const messagesForApi = [];
+            if (state.config.systemPrompt) {
+                messagesForApi.push({ role: 'system', content: state.config.systemPrompt });
             }
-        );
+
+            for (const m of chat.messages) {
+                if (m.id === assistantMsg.id) break;
+                messagesForApi.push({ role: m.role, content: m.content, attachments: m.attachments });
+            }
+
+            if (initialPrefix) {
+                messagesForApi.push({ role: 'assistant', content: initialPrefix });
+                messagesForApi.push({
+                    role: 'user',
+                    content: 'Lanjutkan jawaban Anda dari titik terakhir di atas tanpa mengulang kalimat yang sudah ditulis.'
+                });
+            }
+
+            let lastSave = 0;
+            const throttledSave = (text) => {
+                assistantMsg.content = text;
+                const now = Date.now();
+                if (now - lastSave > 500) {
+                    lastSave = now;
+                    saveStore();
+                }
+            };
+
+            await streamChat(
+                messagesForApi,
+                state.config.provider,
+                state.config.apiKey,
+                state.selectedModel,
+                (chunkText) => {
+                    const fullText = initialPrefix ? (initialPrefix + '\n\n' + chunkText) : chunkText;
+                    throttledSave(fullText);
+                    updateStreamingMessage(fullText);
+                },
+                (finalText) => {
+                    const fullText = initialPrefix ? (initialPrefix + '\n\n' + finalText) : finalText;
+                    assistantMsg.content = fullText;
+                    state.activeStream = null;
+                    saveStore();
+                    finalizeStreamingMessage();
+                    state.isGenerating = false;
+                    chatInputControls.enableInput(true);
+                },
+                (error) => {
+                    state.activeStream = null;
+                    saveStore();
+                    finalizeStreamingMessage();
+                    updateStreamingMessage(`${assistantMsg.content}\n\n**[Terputus]:** ${error}`);
+                    state.isGenerating = false;
+                    chatInputControls.enableInput(true);
+                },
+                {
+                    maxTokens: state.maxTokens,
+                    temperature: state.temperature
+                }
+            );
+        } catch (err) {
+            state.activeStream = null;
+            saveStore();
+            finalizeStreamingMessage();
+            updateStreamingMessage(`**[Error]:** ${err.message || 'Gagal memulai koneksi chat.'}`);
+            state.isGenerating = false;
+            chatInputControls.enableInput(true);
+        }
     }
 
     async function handleSendMessage(text, attachments) {
