@@ -5,6 +5,7 @@ import { initModelSelector } from './modal-models.js';
 import { getMemories, addMemory, deleteMemory, clearAllMemories } from '../services/memory.js';
 import { getSavedLanguageSetting, setLanguage, applyLanguageToDOM } from '../services/i18n.js';
 import { PROVIDERS_CONFIG } from '../api/provider.js';
+import { detectAndParseApiConfig, applyApiConfig } from '../services/api-key-detector.js';
 
 export function initModal({ onModelChange, onClearAll }) {
     const modal = document.getElementById('settings-modal');
@@ -328,14 +329,31 @@ export function initModal({ onModelChange, onClearAll }) {
             }
         });
 
-        apiKeyInput.addEventListener('change', async () => {
-            const val = apiKeyInput.value.trim();
-            setProviderApiKey(state.config.provider, val);
-            syncFormFromState();
-            const cfg = PROVIDERS_CONFIG[state.config.provider] || PROVIDERS_CONFIG.openrouter;
-            if (val || cfg.isLocal) {
-                await modelSelector.loadModelCatalog();
+        const handleApiKeyInput = async () => {
+            const raw = apiKeyInput.value.trim();
+            const detected = detectAndParseApiConfig(raw);
+            if (detected) {
+                applyApiConfig(detected);
+                syncFormFromState();
+                showToast(`Terdeteksi ${detected.providerName} & dikonfigurasikan otomatis!`, 'success');
+                const cfg = PROVIDERS_CONFIG[state.config.provider] || PROVIDERS_CONFIG.openrouter;
+                if (detected.apiKey || cfg.isLocal) {
+                    await modelSelector.loadModelCatalog();
+                }
+                if (onModelChange) onModelChange(state.selectedModel);
+            } else {
+                setProviderApiKey(state.config.provider, raw);
+                syncFormFromState();
+                const cfg = PROVIDERS_CONFIG[state.config.provider] || PROVIDERS_CONFIG.openrouter;
+                if (raw || cfg.isLocal) {
+                    await modelSelector.loadModelCatalog();
+                }
             }
+        };
+
+        apiKeyInput.addEventListener('change', handleApiKeyInput);
+        apiKeyInput.addEventListener('paste', () => {
+            setTimeout(handleApiKeyInput, 50);
         });
     }
 

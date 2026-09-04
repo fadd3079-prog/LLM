@@ -458,6 +458,14 @@ b, strong {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color var(--transition-fast, 0.15s ease), border-color var(--transition-fast, 0.15s ease);
+}
+
+.header-model-info:hover {
+    background-color: var(--color-canvas-subtle);
+    border-color: var(--color-border);
 }
 
 .header-model-info:empty {

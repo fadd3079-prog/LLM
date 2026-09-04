@@ -139,7 +139,9 @@ export function updateHeaderModelDisplay() {
     if (state.selectedModel) {
         const found = state.models.find(m => m.id === state.selectedModel);
         display.textContent = found?.name || state.selectedModel;
+        display.title = `Model aktif: ${state.selectedModel}. Klik untuk mengganti model.`;
     } else {
         display.textContent = '';
+        display.removeAttribute('title');
     }
 }

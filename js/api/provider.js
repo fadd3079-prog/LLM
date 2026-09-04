@@ -3,7 +3,7 @@ import { parseSSEChunk } from './stream-parser.js';
 export const PROVIDERS_CONFIG = {
     openrouter: {
         id: 'openrouter',
-        name: 'OpenRouter (Recommended)',
+        name: 'OpenRouter',
         defaultBaseUrl: 'https://openrouter.ai/api/v1',
         keyUrl: 'https://openrouter.ai/keys',
         helpText: 'Ambil API Key OpenRouter (300+ Model)',
@@ -61,7 +61,7 @@ export const PROVIDERS_CONFIG = {
     },
     groq: {
         id: 'groq',
-        name: 'Groq (Ultra-Fast LPU)',
+        name: 'Groq',
         defaultBaseUrl: 'https://api.groq.com/openai/v1',
         keyUrl: 'https://console.groq.com/keys',
         helpText: 'Ambil API Key Groq (Free tier tersedia)',
@@ -126,7 +126,7 @@ export const PROVIDERS_CONFIG = {
     },
     cerebras: {
         id: 'cerebras',
-        name: 'Cerebras (Fast Inference)',
+        name: 'Cerebras',
         defaultBaseUrl: 'https://api.cerebras.ai/v1',
         keyUrl: 'https://cloud.cerebras.ai/',
         helpText: 'Ambil API Key Cerebras',
@@ -145,7 +145,7 @@ export const PROVIDERS_CONFIG = {
         helpText: 'Ambil API Key NVIDIA NIM (1000 free credits)',
         keyPlaceholder: 'nvapi-...',
         isLocal: false,
-        defaultModel: 'meta/llama-3.3-70b-instruct',
+        defaultModel: 'meta/llama-3.2-11b-vision-instruct',
         headers: (apiKey) => ({
             'Authorization': `Bearer ${apiKey}`
         })
@@ -165,7 +165,7 @@ export const PROVIDERS_CONFIG = {
     },
     ollama: {
         id: 'ollama',
-        name: 'Ollama (Localhost)',
+        name: 'Ollama',
         defaultBaseUrl: 'http://localhost:11434/v1',
         keyUrl: 'https://ollama.com',
         helpText: 'Pastikan Ollama berjalan di komputer Anda',
@@ -176,7 +176,7 @@ export const PROVIDERS_CONFIG = {
     },
     lmstudio: {
         id: 'lmstudio',
-        name: 'LM Studio (Localhost)',
+        name: 'LM Studio',
         defaultBaseUrl: 'http://localhost:1234/v1',
         keyUrl: 'https://lmstudio.ai',
         helpText: 'Nyalakan Local Server di LM Studio',
@@ -204,7 +204,8 @@ export async function fetchModels(provider = 'openrouter', apiKey = '', customBa
         return null;
     }
 
-    const baseUrl = (customBaseUrl || cfg.defaultBaseUrl).replace(/\/+$/, '');
+    let baseUrl = (customBaseUrl || cfg.defaultBaseUrl).replace(/\/+$/, '');
+    baseUrl = baseUrl.replace(/\/chat\/completions\/?$/i, '');
     const url = `${baseUrl}/models`;
 
     try {
@@ -230,7 +231,7 @@ export async function fetchModels(provider = 'openrouter', apiKey = '', customBa
                 context_length: m.context_length || m.max_tokens || 0,
                 pricing: m.pricing || null
             };
-        }).filter(m => Boolean(m.id)).sort((a, b) => a.name.localeCompare(b.name));
+        }).filter(m => Boolean(m.id) && !m.id.includes('thinkingmachines/inkling')).sort((a, b) => a.name.localeCompare(b.name));
     } catch (e) {
         console.warn(`Gagal fetch models dari ${provider}:`, e);
         return null;
@@ -369,7 +370,9 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
     }
 
     // Format standar OpenAI-compatible (OpenRouter, OpenAI, Gemini, Groq, DeepSeek, Mistral, Together, Cerebras, NVIDIA, Ollama, LM Studio, Custom)
-    const url = `${baseUrl}/chat/completions`;
+    let cleanBaseUrl = (options.baseUrl || cfg.defaultBaseUrl).replace(/\/+$/, '');
+    cleanBaseUrl = cleanBaseUrl.replace(/\/chat\/completions\/?$/i, '');
+    const url = `${cleanBaseUrl}/chat/completions`;
     const payload = {
         model: model || cfg.defaultModel,
         messages: messages.map(m => {
@@ -436,7 +439,8 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
             method: 'POST',
             headers: {
                 ...cfg.headers(apiKey),
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'text/event-stream'
             },
             body: JSON.stringify(payload),
             signal: options.signal
@@ -444,7 +448,11 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
 
         if (!response.ok) {
             const errData = await response.json().catch(() => ({}));
-            throw new Error(errData.error?.message || `Error API (${response.status}): ${response.statusText}`);
+            let errMsg = errData.error?.message || `Error API (${response.status}): ${response.statusText}`;
+            if (errMsg.includes('agentic harnesses') || errMsg.includes('inkling')) {
+                errMsg = `Model "${model || ''}" dibatasi oleh OpenRouter (hanya untuk agentic harness terdaftar). Silakan ganti ke model lain seperti Gemini Flash, Llama 3.3, atau DeepSeek di pengaturan model.`;
+            }
+            throw new Error(errMsg);
         }
 
         await readStreamResponse(response, onChunk, onComplete, onError, options);
@@ -452,7 +460,15 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
         if (err.name === 'AbortError' || options.signal?.aborted) {
             if (onComplete) onComplete('');
         } else {
-            if (onError) onError(err.message || 'Terjadi kesalahan saat memproses permintaan.');
+            let errorMsg = err.message || 'Terjadi kesalahan saat memproses permintaan.';
+            if (errorMsg === 'Failed to fetch' || errorMsg.includes('Failed to fetch')) {
+                if (provider === 'nvidia') {
+                    errorMsg = 'NVIDIA NIM diblokir oleh CORS browser (Server NVIDIA belum menyertakan header Access-Control-Allow-Origin untuk panggilan langsung dari browser). Solusi: gunakan OpenRouter/Groq atau jalankan reverse proxy lokal.';
+                } else {
+                    errorMsg = `Gagal terhubung (${errorMsg}). Periksa koneksi internet Anda atau pastikan endpoint mendukung akses CORS dari browser.`;
+                }
+            }
+            if (onError) onError(errorMsg);
         }
     }
 }

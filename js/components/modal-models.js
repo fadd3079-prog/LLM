@@ -68,9 +68,11 @@ export const CURATED_MODELS_BY_PROVIDER = {
         { id: 'llama3.1-8b', name: 'Llama 3.1 8B (Fast Inference)', context_length: 8192 }
     ],
     nvidia: [
-        { id: 'meta/llama-3.3-70b-instruct', name: 'Llama 3.3 70B (NVIDIA)', context_length: 128000 },
+        { id: 'meta/llama-3.2-11b-vision-instruct', name: 'Llama 3.2 11B Vision (Fast)', context_length: 128000 },
+        { id: 'moonshotai/kimi-k3', name: 'Kimi K3 (Moonshot AI)', context_length: 128000 },
         { id: 'nvidia/llama-3.1-nemotron-70b-instruct', name: 'Nemotron 70B', context_length: 128000 },
-        { id: 'deepseek-ai/deepseek-r1', name: 'DeepSeek R1 (NVIDIA)', context_length: 64000 }
+        { id: 'deepseek-ai/deepseek-v4-pro-0813', name: 'DeepSeek V4 Pro', context_length: 64000 },
+        { id: 'mistralai/mistral-large-2-instruct', name: 'Mistral Large 2', context_length: 128000 }
     ],
     cohere: [
         { id: 'command-r-plus-08-2024', name: 'Command R+ (Enterprise)', context_length: 128000 },

@@ -10,6 +10,7 @@ import { formatMemoriesForSystemPrompt } from './services/memory.js';
 import { isImageGenerationRequest, extractImagePrompt, getGeneratedImageUrl } from './services/image-generator.js';
 import { applyLanguageToDOM } from './services/i18n.js';
 import { getAppKnowledgeSystemPrompt, processAssistantResponseForMemories } from './services/app-knowledge.js';
+import { detectAndParseApiConfig, isPureApiSetupMessage, applyApiConfig, generateConnectionSuccessCard } from './services/api-key-detector.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     initStore();
@@ -122,6 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-settings')?.addEventListener('click', () => modal.open('umum'));
     document.getElementById('btn-open-settings')?.addEventListener('click', () => modal.open('umum'));
     document.getElementById('btn-open-settings-prompt')?.addEventListener('click', () => modal.open('api'));
+    document.getElementById('active-model-display')?.addEventListener('click', () => modal.open('api'));
 
     document.getElementById('btn-quick-theme')?.addEventListener('click', () => {
         const nextTheme = state.config.theme === 'dark' ? 'light' : 'dark';
@@ -263,7 +265,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     maxTokens: state.maxTokens,
                     temperature: state.temperature,
                     signal: activeAbortController.signal,
-                    webSearch: streamOptions.webSearch || false
+                    webSearch: streamOptions.webSearch || false,
+                    baseUrl: state.config.baseUrl || state.config.customBaseUrls?.[state.config.provider] || ''
                 }
             );
         } catch (err) {
@@ -283,6 +286,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const currentChat = getCurrentChat();
         if (!currentChat) return;
+
+        // 1. Deteksi otomatis pengiriman API Key / Cuplikan kode konfigurasi API ke chat
+        const apiConfig = detectAndParseApiConfig(text);
+        if (apiConfig && (!attachments || attachments.length === 0)) {
+            const isPureSetup = isPureApiSetupMessage(text, apiConfig);
+
+            // Simpan konfigurasi otomatis ke state dan storage
+            applyApiConfig(apiConfig);
+            refreshUI();
+
+            showToast(`Provider ${apiConfig.providerName} & API Key berhasil terhubung!`, 'success');
+
+            if (isPureSetup) {
+                const userMsg = addMessage('user', text);
+                if (userMsg) appendUserMessage(userMsg);
+
+                const cardContent = generateConnectionSuccessCard(apiConfig);
+                const assistantMsg = addMessage('assistant', cardContent);
+                saveStore();
+
+                renderChats({
+                    onSelectChat: (id) => { state.currentChatId = id; refreshUI(); },
+                    onDeleteChat: (id) => { deleteChat(id); refreshUI(); },
+                    onTogglePin: (id) => { togglePinChat(id); refreshUI(); }
+                });
+
+                if (assistantMsg) {
+                    appendStreamingMessage('', 'default');
+                    finalizeStreamingMessage();
+                    updateStreamingMessage(cardContent);
+                }
+                return;
+            }
+        }
 
         // Deteksi apakah pengguna meminta pembuatan gambar AI
         if (isImageGenerationRequest(text) && (!attachments || attachments.length === 0)) {
