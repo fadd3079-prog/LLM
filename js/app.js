@@ -9,6 +9,7 @@ import { showToast } from './utils/toast.js';
 import { formatMemoriesForSystemPrompt } from './services/memory.js';
 import { isImageGenerationRequest, extractImagePrompt, getGeneratedImageUrl } from './services/image-generator.js';
 import { applyLanguageToDOM } from './services/i18n.js';
+import { getAppKnowledgeSystemPrompt, processAssistantResponseForMemories } from './services/app-knowledge.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     initStore();
@@ -165,10 +166,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const messagesForApi = [];
 
-            // Gabungkan instruksi sistem, kapabilitas file, dan memori lintas chat
-            const fileCapabilityPrompt = `\n\n[KEMAMPUAN MEMBUAT FILE]\nAnda memiliki kemampuan penuh untuk membuat, menyusun, dan membagikan berbagai macam file (seperti Markdown .md, Dokumen Teks .txt, Skrip Python .py, HTML/CSS/JS, CSV, JSON, SQL, Shell script, dll). Jika pengguna meminta Anda membuat, menyimpan, atau menulis file, buatlah isi file tersebut secara lengkap dalam blok kode dengan menyertakan nama file (contoh: \`\`\`markdown:dokumen.md atau \`\`\`python:skrip.py) dan beri penjelasan singkat. Aplikasi ini otomatis menyediakan tombol 'Download File' di samping blok kode sehingga pengguna dapat langsung mendownloadnya. Jangan pernah mengatakan bahwa Anda tidak bisa membuat atau menyimpan file.`;
+            // Gabungkan pengetahuan lengkap aplikasi, instruksi sistem, dan memori lintas chat
+            const appKnowledgePrompt = getAppKnowledgeSystemPrompt();
             const memoriesPrompt = formatMemoriesForSystemPrompt();
-            const fullSystemPrompt = (state.config.systemPrompt || '') + fileCapabilityPrompt + memoriesPrompt;
+            const userCustomPrompt = state.config.systemPrompt ? `\n\n[INSTRUKSI KHUSUS PENGGUNA]\n${state.config.systemPrompt}\n` : '';
+            const fullSystemPrompt = `${appKnowledgePrompt}${memoriesPrompt}${userCustomPrompt}`.trim();
 
             messagesForApi.push({ role: 'system', content: fullSystemPrompt });
 
@@ -203,15 +205,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 (chunkText) => {
                     const fullText = initialPrefix ? (initialPrefix + '\n\n' + chunkText) : chunkText;
                     throttledSave(fullText);
-                    updateStreamingMessage(fullText);
+                    // Filter tag memori agar tidak mengganggu pratinjau teks saat streaming
+                    const liveDisplay = fullText.replace(/\[(?:MEMORY_ADD|INGAT|REMEMBER):.*?(\]|$)/gi, '').trimEnd();
+                    updateStreamingMessage(liveDisplay || fullText);
                 },
                 (finalText) => {
-                    const fullText = initialPrefix ? (initialPrefix + '\n\n' + finalText) : finalText;
+                    let fullText = initialPrefix ? (initialPrefix + '\n\n' + finalText) : finalText;
+
+                    // Ekstraksi memori yang dipelajari secara otonom oleh AI
+                    const { cleanText, learnedMemories } = processAssistantResponseForMemories(fullText);
+                    fullText = cleanText;
+
+                    if (learnedMemories.length > 0) {
+                        learnedMemories.forEach(mem => {
+                            showToast(`AI mempelajari memori: "${mem}"`, 'success');
+                        });
+                    }
+
                     assistantMsg.content = fullText;
                     state.activeStream = null;
                     activeAbortController = null;
                     saveStore();
                     finalizeStreamingMessage();
+                    updateStreamingMessage(fullText);
                     state.isGenerating = false;
                     chatInputControls.setGenerating(false);
                     chatInputControls.enableInput(true);
