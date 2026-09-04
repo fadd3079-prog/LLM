@@ -264,7 +264,13 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
 
                 m.attachments.forEach(att => {
                     if (att.category === 'pdf' || att.type === 'application/pdf') {
-                        userText += `\n\n[Lampiran Dokumen PDF: ${att.name}]\n"""\n${att.textContent || ''}\n"""`;
+                        userText += `\n\n[Lampiran Dokumen PDF: ${att.name}${att.pageCount ? ' (' + att.pageCount + ' halaman)' : ''}]\n"""\n${att.textContent || ''}\n"""`;
+                    } else if (att.category === 'presentation' || att.ext === 'pptx' || att.ext === 'ppt') {
+                        userText += `\n\n[Lampiran Presentasi PowerPoint: ${att.name}${att.slideCount ? ' (' + att.slideCount + ' slide)' : ''}]\n"""\n${att.textContent || ''}\n"""`;
+                    } else if (att.category === 'document' || att.ext === 'docx' || att.ext === 'doc') {
+                        userText += `\n\n[Lampiran Dokumen Word: ${att.name}]\n"""\n${att.textContent || ''}\n"""`;
+                    } else if (att.category === 'spreadsheet' || att.ext === 'xlsx' || att.ext === 'xls') {
+                        userText += `\n\n[Lampiran Lembar Kerja Spreadsheet: ${att.name}]\n"""\n${att.textContent || ''}\n"""`;
                     } else if (att.category === 'zip' || att.type === 'application/zip') {
                         userText += `\n\n[Lampiran Arsip ZIP: ${att.name}]\n"""\n${att.textContent || ''}\n"""`;
                     } else if (att.category === 'text' || att.textContent) {
@@ -290,6 +296,23 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
                                 }
                             });
                         }
+                    }
+                    if (att.pageImages && att.pageImages.length > 0) {
+                        att.pageImages.forEach(pImg => {
+                            const imgUrl = typeof pImg === 'string' ? pImg : pImg.dataUrl;
+                            if (imgUrl && imgUrl.includes(',')) {
+                                const [meta, base64Data] = imgUrl.split(',');
+                                const mimeType = meta.match(/:(.*?);/)?.[1] || 'image/jpeg';
+                                contentBlocks.push({
+                                    type: 'image',
+                                    source: {
+                                        type: 'base64',
+                                        media_type: mimeType,
+                                        data: base64Data
+                                    }
+                                });
+                            }
+                        });
                     }
                 });
 
@@ -357,6 +380,12 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
                 m.attachments.forEach(att => {
                     if (att.category === 'pdf' || att.type === 'application/pdf') {
                         userText += `\n\n[Lampiran Dokumen PDF: ${att.name} (${att.sizeFormatted || ''}${att.pageCount ? ', ' + att.pageCount + ' halaman' : ''})]\n"""\n${att.textContent || ''}\n"""`;
+                    } else if (att.category === 'presentation' || att.ext === 'pptx' || att.ext === 'ppt') {
+                        userText += `\n\n[Lampiran Presentasi PowerPoint: ${att.name} (${att.sizeFormatted || ''}${att.slideCount ? ', ' + att.slideCount + ' slide' : ''})]\n"""\n${att.textContent || ''}\n"""`;
+                    } else if (att.category === 'document' || att.ext === 'docx' || att.ext === 'doc') {
+                        userText += `\n\n[Lampiran Dokumen Word: ${att.name} (${att.sizeFormatted || ''})]\n"""\n${att.textContent || ''}\n"""`;
+                    } else if (att.category === 'spreadsheet' || att.ext === 'xlsx' || att.ext === 'xls') {
+                        userText += `\n\n[Lampiran Lembar Kerja Spreadsheet: ${att.name} (${att.sizeFormatted || ''})]\n"""\n${att.textContent || ''}\n"""`;
                     } else if (att.category === 'zip' || att.type === 'application/zip') {
                         userText += `\n\n[Lampiran Arsip ZIP: ${att.name} (${att.sizeFormatted || ''})]\n"""\n${att.textContent || ''}\n"""`;
                     } else if (att.category === 'text' || att.textContent) {
@@ -374,6 +403,17 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
                                 image_url: { url: att.data }
                             });
                         }
+                    }
+                    if (att.pageImages && att.pageImages.length > 0) {
+                        att.pageImages.forEach(pImg => {
+                            const imgUrl = typeof pImg === 'string' ? pImg : pImg.dataUrl;
+                            if (imgUrl) {
+                                parts.push({
+                                    type: 'image_url',
+                                    image_url: { url: imgUrl }
+                                });
+                            }
+                        });
                     }
                 });
 

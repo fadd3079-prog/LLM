@@ -175,6 +175,9 @@ export function initInputUI(onSendMessage, onStopGeneration) {
 
             const iconMap = {
                 pdf: 'file-text',
+                presentation: 'presentation',
+                document: 'file-text',
+                spreadsheet: 'table',
                 zip: 'archive',
                 code: 'file-code',
                 text: 'file-text'

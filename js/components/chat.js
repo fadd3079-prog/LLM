@@ -170,7 +170,11 @@ function createMessageElement(msg) {
                 if (a.category === 'image' || a.type?.startsWith('image/')) {
                     return `<img src="${a.data}" alt="${a.name}" class="msg-img-attachment" style="width:52px;height:52px;object-fit:cover;border-radius:var(--rounded-md);border:1px solid var(--color-hairline-strong);">`;
                 }
-                const icon = a.category === 'zip' ? 'archive' : (a.category === 'pdf' ? 'file-text' : 'file-code');
+                const icon = a.category === 'zip' ? 'archive' : 
+                             (a.category === 'pdf' ? 'file-text' : 
+                             (a.category === 'presentation' ? 'presentation' : 
+                             (a.category === 'spreadsheet' ? 'table' : 
+                             (a.category === 'document' ? 'file-text' : 'file-code'))));
                 return `<div class="msg-file-badge ${a.category || 'text'}"><i data-lucide="${icon}" class="msg-file-icon"></i><span class="msg-file-name" title="${a.name}">${a.name}</span><span class="msg-file-size">${a.sizeFormatted || ''}</span></div>`;
             }).join('');
             content.appendChild(tray);
