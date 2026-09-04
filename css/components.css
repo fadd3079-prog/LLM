@@ -1801,3 +1801,334 @@
     }
 }
 
+/* ==========================================================================
+   STOP STREAMING BUTTON
+   ========================================================================== */
+
+.send-btn.btn-stop {
+    background-color: #ef4444 !important;
+    color: #ffffff !important;
+    animation: pulseStop 1.8s infinite ease-in-out;
+    opacity: 1 !important;
+    cursor: pointer !important;
+}
+
+.send-btn.btn-stop:hover {
+    background-color: #dc2626 !important;
+    transform: scale(1.05);
+}
+
+.send-btn.btn-stop svg {
+    width: 13px !important;
+    height: 13px !important;
+}
+
+@keyframes pulseStop {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+    }
+}
+
+/* ==========================================================================
+   WEB SEARCH TOGGLE BUTTON
+   ========================================================================== */
+
+.web-search-btn {
+    position: relative;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.web-search-btn.active {
+    background-color: rgba(59, 130, 246, 0.15) !important;
+    color: #2563eb !important;
+    border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+.web-search-btn.active::after {
+    content: '';
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 6px;
+    height: 6px;
+    background-color: #2563eb;
+    border-radius: var(--rounded-full);
+}
+
+[data-theme="dark"] .web-search-btn.active,
+.theme-dark .web-search-btn.active {
+    background-color: rgba(96, 165, 250, 0.2) !important;
+    color: #60a5fa !important;
+}
+
+[data-theme="dark"] .web-search-btn.active::after,
+.theme-dark .web-search-btn.active::after {
+    background-color: #60a5fa;
+}
+
+/* ==========================================================================
+   CODE BLOCK ACTIONS (Salin & Unduh File)
+   ========================================================================== */
+
+.code-actions-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.code-download-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: var(--rounded-xs);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-mute);
+    background: transparent;
+    border: 1px solid var(--color-hairline);
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.code-download-btn:hover {
+    background-color: var(--color-canvas-soft);
+    color: var(--color-ink);
+    border-color: var(--color-hairline-strong);
+}
+
+.code-download-btn.copied {
+    color: #16a34a;
+    border-color: #16a34a;
+}
+
+.code-download-btn svg {
+    width: 12px;
+    height: 12px;
+}
+
+.export-icon-btn:hover {
+    color: var(--color-coral);
+}
+
+/* ==========================================================================
+   AI IMAGE GENERATION CARD
+   ========================================================================== */
+
+.ai-image-card {
+    margin: 1.25em 0;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-hairline-strong);
+    border-radius: var(--rounded-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-level-2);
+    max-width: 540px;
+}
+
+.ai-image-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background-color: var(--color-canvas-soft);
+    border-bottom: 1px solid var(--color-hairline);
+}
+
+.ai-image-tag {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-coral);
+}
+
+.ai-image-sparkle {
+    width: 14px;
+    height: 14px;
+}
+
+.ai-image-title {
+    color: var(--color-ink);
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ai-image-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ai-image-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: var(--rounded-xs);
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--color-body);
+    background: var(--color-surface);
+    border: 1px solid var(--color-hairline);
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.ai-image-btn:hover {
+    background-color: var(--color-canvas-soft-2);
+    color: var(--color-ink);
+    border-color: var(--color-hairline-strong);
+}
+
+.ai-image-btn svg {
+    width: 13px;
+    height: 13px;
+}
+
+.ai-image-wrapper {
+    position: relative;
+    width: 100%;
+    min-height: 200px;
+    background: linear-gradient(110deg, var(--color-canvas-soft) 8%, var(--color-canvas-soft-2) 18%, var(--color-canvas-soft) 33%);
+    background-size: 200% 100%;
+    animation: imageShimmer 1.5s linear infinite;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-in;
+}
+
+.ai-image-wrapper img {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+    max-height: 520px;
+    transition: transform 0.2s ease;
+}
+
+.ai-image-wrapper:hover img {
+    transform: scale(1.01);
+}
+
+@keyframes imageShimmer {
+    to {
+        background-position-x: -200%;
+    }
+}
+
+/* ==========================================================================
+   CROSS-CHAT MEMORY PANEL
+   ========================================================================== */
+
+.memory-input-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.memory-input-row .modal-input {
+    flex: 1;
+}
+
+.add-memory-btn {
+    height: 38px;
+    padding: 0 14px;
+    font-size: 13px;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.memory-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.memory-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 12px;
+    background-color: var(--color-canvas-soft);
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--rounded-sm);
+    transition: border-color 0.15s ease;
+}
+
+.memory-item:hover {
+    border-color: var(--color-hairline-strong);
+}
+
+.memory-item-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.memory-item-icon {
+    width: 14px;
+    height: 14px;
+    color: var(--color-coral);
+    flex-shrink: 0;
+}
+
+.memory-text {
+    font-size: 13px;
+    color: var(--color-ink);
+    word-break: break-word;
+}
+
+.btn-delete-memory {
+    width: 24px;
+    height: 24px;
+    border-radius: var(--rounded-xs);
+    border: none;
+    background: transparent;
+    color: var(--color-mute);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.12s ease, color 0.12s ease;
+    flex-shrink: 0;
+}
+
+.btn-delete-memory:hover {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+.btn-delete-memory svg {
+    width: 13px;
+    height: 13px;
+}
+
+.empty-memory-state {
+    padding: 16px;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--color-mute);
+    border: 1px dashed var(--color-hairline-strong);
+    border-radius: var(--rounded-sm);
+}
+
+.memory-footer-actions {
+    margin-top: 12px;
+    display: flex;
+    justify-content: flex-end;
+}

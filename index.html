@@ -154,6 +154,10 @@
                             title="Lampirkan Berkas (Gambar, PDF, ZIP, Dokumen, Kode)">
                             <i data-lucide="paperclip"></i>
                         </button>
+                        <button id="btn-web-search" class="icon-button web-search-btn" aria-label="Riset Web Terkini"
+                            title="Riset Web Terkini (Cari informasi terbaru di internet)" aria-pressed="false">
+                            <i data-lucide="globe"></i>
+                        </button>
                         <input type="file" id="file-input" class="hidden" accept="*" multiple>
                         <textarea id="chat-input" class="chat-input" placeholder="Ketik perintah..." rows="1"
                             aria-label="Input pesan"></textarea>
@@ -194,6 +198,11 @@
                         aria-controls="panel-api">
                         <i data-lucide="key"></i>
                         <span>API & Model</span>
+                    </button>
+                    <button role="tab" id="tab-memory" class="nav-tab tab-button" data-tab="memory" aria-selected="false"
+                        aria-controls="panel-memory">
+                        <i data-lucide="brain"></i>
+                        <span>Memori AI</span>
                     </button>
                 </nav>
 
@@ -373,6 +382,38 @@
                                     </div>
                                     <ul id="modal-model-dropdown" class="dropdown-list hidden"></ul>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div role="tabpanel" id="panel-memory" class="tab-panel" aria-labelledby="tab-memory">
+                        <div class="settings-card">
+                            <div class="section-title">
+                                <div class="title-with-status">
+                                    <h3>Memori Lintas Percakapan</h3>
+                                    <span class="status-badge-mini" id="memory-count-badge">0 Catatan</span>
+                                </div>
+                                <p class="section-desc">AI mengingat preferensi, peran, dan konteks ini di semua sesi percakapan Anda.</p>
+                            </div>
+                            <div class="input-group memory-input-row">
+                                <input type="text" id="input-new-memory" class="modal-input" placeholder="Tambah memori baru (misal: 'Saya software engineer', 'Selalu buatkan file .md')..." />
+                                <button type="button" id="btn-add-memory" class="primary-button add-memory-btn">
+                                    <i data-lucide="plus"></i> Tambah
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="settings-card">
+                            <div class="section-title">
+                                <h3>Daftar Memori Tersimpan</h3>
+                            </div>
+                            <div id="memory-list" class="memory-list">
+                                <div class="empty-memory-state">Belum ada memori tersimpan. Tambahkan preferensi di atas agar AI selalu mengingatnya.</div>
+                            </div>
+                            <div class="memory-footer-actions">
+                                <button type="button" id="btn-clear-memories" class="danger-button text-sm" style="display: none;">
+                                    <i data-lucide="trash-2"></i> Hapus Semua Memori
+                                </button>
                             </div>
                         </div>
                     </div>

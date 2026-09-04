@@ -1,6 +1,7 @@
 import { state, saveStore, setTheme } from '../store/index.js';
 import { showToast } from '../utils/toast.js';
 import { initModelSelector } from './modal-models.js';
+import { getMemories, addMemory, deleteMemory, clearAllMemories } from '../services/memory.js';
 
 export function initModal({ onModelChange, onClearAll }) {
     const modal = document.getElementById('settings-modal');
@@ -60,9 +61,93 @@ export function initModal({ onModelChange, onClearAll }) {
             opt.setAttribute('aria-pressed', isActive ? 'true' : 'false');
         });
 
+        renderMemoryUI();
+
         if (typeof lucide !== 'undefined') {
             lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });
         }
+    }
+
+    function renderMemoryUI() {
+        const memoryList = document.getElementById('memory-list');
+        const memoryBadge = document.getElementById('memory-count-badge');
+        const btnClearMem = document.getElementById('btn-clear-memories');
+        if (!memoryList) return;
+
+        const memories = getMemories();
+        if (memoryBadge) {
+            memoryBadge.textContent = `${memories.length} Catatan`;
+        }
+
+        if (btnClearMem) {
+            btnClearMem.style.display = memories.length > 0 ? 'inline-flex' : 'none';
+        }
+
+        if (memories.length === 0) {
+            memoryList.innerHTML = '<div class="empty-memory-state">Belum ada memori tersimpan. Tambahkan preferensi di atas agar AI selalu mengingatnya.</div>';
+            return;
+        }
+
+        memoryList.innerHTML = memories.map(m => `
+            <div class="memory-item" data-id="${m.id}">
+                <div class="memory-item-content">
+                    <i data-lucide="sparkle" class="memory-item-icon"></i>
+                    <span class="memory-text">${m.text}</span>
+                </div>
+                <button class="btn-delete-memory" data-id="${m.id}" title="Hapus memori ini" aria-label="Hapus memori">
+                    <i data-lucide="trash-2"></i>
+                </button>
+            </div>
+        `).join('');
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });
+        }
+
+        memoryList.querySelectorAll('.btn-delete-memory').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = btn.dataset.id;
+                deleteMemory(id);
+                renderMemoryUI();
+                showToast('Memori berhasil dihapus', 'info');
+            });
+        });
+    }
+
+    const inputNewMemory = document.getElementById('input-new-memory');
+    const btnAddMemory = document.getElementById('btn-add-memory');
+    const btnClearMemories = document.getElementById('btn-clear-memories');
+
+    function handleAddMemory() {
+        if (!inputNewMemory) return;
+        const text = inputNewMemory.value.trim();
+        if (!text) return;
+        addMemory(text);
+        inputNewMemory.value = '';
+        renderMemoryUI();
+        showToast('Memori baru berhasil disimpan', 'success');
+    }
+
+    if (btnAddMemory) {
+        btnAddMemory.addEventListener('click', handleAddMemory);
+    }
+    if (inputNewMemory) {
+        inputNewMemory.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleAddMemory();
+            }
+        });
+    }
+    if (btnClearMemories) {
+        btnClearMemories.addEventListener('click', () => {
+            if (confirm('Hapus seluruh memori yang diingat AI?')) {
+                clearAllMemories();
+                renderMemoryUI();
+                showToast('Seluruh memori AI berhasil dibersihkan', 'info');
+            }
+        });
     }
 
     const saveAllFormInputs = () => {

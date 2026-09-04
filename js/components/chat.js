@@ -2,6 +2,59 @@ import { parseMarkdown } from '../utils/markdown.js';
 import { repairIncompleteMarkdown, calculateConsumptionStep } from '../api/stream-parser.js';
 import { formatTime } from '../utils/dom.js';
 import { enhanceCodeBlocks, enhanceTables, appendAssistantActions } from './chat-actions.js';
+import { downloadImageFromUrl } from '../services/image-generator.js';
+
+export function enhanceImages(container) {
+    const images = container.querySelectorAll('img:not(.preview-thumbnail):not(.msg-img-attachment)');
+    images.forEach(img => {
+        if (img.parentElement?.classList.contains('ai-image-wrapper')) return;
+
+        const card = document.createElement('div');
+        card.className = 'ai-image-card';
+
+        const header = document.createElement('div');
+        header.className = 'ai-image-header';
+        header.innerHTML = `
+            <div class="ai-image-tag">
+                <i data-lucide="sparkles" class="ai-image-sparkle"></i>
+                <span class="ai-image-title">${img.alt || 'Gambar Dihasilkan AI'}</span>
+            </div>
+            <div class="ai-image-actions">
+                <button class="ai-image-btn btn-dl-img" title="Unduh Gambar" aria-label="Unduh Gambar">
+                    <i data-lucide="download"></i>
+                    <span>Unduh</span>
+                </button>
+                <button class="ai-image-btn btn-view-img" title="Buka Gambar Resolusi Penuh" aria-label="Buka Gambar">
+                    <i data-lucide="external-link"></i>
+                </button>
+            </div>
+        `;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'ai-image-wrapper';
+
+        img.parentNode.insertBefore(card, img);
+        wrapper.appendChild(img);
+        card.appendChild(header);
+        card.appendChild(wrapper);
+
+        const dlBtn = header.querySelector('.btn-dl-img');
+        dlBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            downloadImageFromUrl(img.src, `ai_gambar_${Date.now()}.jpg`);
+        });
+
+        const viewBtn = header.querySelector('.btn-view-img');
+        viewBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.open(img.src, '_blank');
+        });
+
+        img.addEventListener('click', () => {
+            window.open(img.src, '_blank');
+        });
+    });
+}
 
 let incomingTargetText = '';
 let consumedLength = 0;
@@ -103,6 +156,7 @@ function createMessageElement(msg) {
         content.innerHTML = parseMarkdown(msg.content);
         enhanceCodeBlocks(content);
         enhanceTables(content);
+        enhanceImages(content);
         wrapper.appendChild(content);
         appendAssistantActions(wrapper, content);
     } else {
@@ -237,6 +291,7 @@ function finalizeStreamRender(content) {
         content.innerHTML = parseMarkdown(incomingTargetText);
         enhanceCodeBlocks(content);
         enhanceTables(content);
+        enhanceImages(content);
         appendAssistantActions(wrapper, content);
         if (typeof lucide !== 'undefined') {
             lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });

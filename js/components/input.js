@@ -2,13 +2,17 @@ import { getPendingAttachments, clearPendingAttachments, addPendingAttachment, r
 import { validateFile, processFile } from '../utils/file-processor.js';
 import { showToast } from '../utils/toast.js';
 
-export function initInputUI(onSendMessage) {
+export function initInputUI(onSendMessage, onStopGeneration) {
     const chatInput = document.getElementById('chat-input');
     const btnSend = document.getElementById('btn-send');
     const btnAttach = document.getElementById('btn-attach');
+    const btnWebSearch = document.getElementById('btn-web-search');
     const fileInput = document.getElementById('file-input');
     const imagePreviewTray = document.getElementById('image-preview-tray');
     const dropOverlay = document.getElementById('drop-overlay');
+
+    let isGeneratingState = false;
+    let isWebSearchActive = false;
 
     const adjustHeight = () => {
         chatInput.style.height = 'auto';
@@ -16,6 +20,10 @@ export function initInputUI(onSendMessage) {
     };
 
     const updateSendButtonState = () => {
+        if (isGeneratingState) {
+            btnSend.disabled = false;
+            return;
+        }
         btnSend.disabled = chatInput.value.trim() === '' && getPendingAttachments().length === 0;
     };
 
@@ -48,7 +56,9 @@ export function initInputUI(onSendMessage) {
     chatInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            if (!btnSend.disabled) {
+            if (isGeneratingState) {
+                if (typeof onStopGeneration === 'function') onStopGeneration();
+            } else if (!btnSend.disabled) {
                 submitMessage();
             }
         }
@@ -70,10 +80,26 @@ export function initInputUI(onSendMessage) {
     });
 
     btnSend.addEventListener('click', () => {
-        if (!btnSend.disabled) {
+        if (isGeneratingState) {
+            if (typeof onStopGeneration === 'function') onStopGeneration();
+        } else if (!btnSend.disabled) {
             submitMessage();
         }
     });
+
+    // Toggle Riset Web Terkini
+    if (btnWebSearch) {
+        btnWebSearch.addEventListener('click', () => {
+            isWebSearchActive = !isWebSearchActive;
+            btnWebSearch.classList.toggle('active', isWebSearchActive);
+            btnWebSearch.setAttribute('aria-pressed', isWebSearchActive ? 'true' : 'false');
+            if (isWebSearchActive) {
+                showToast('Riset Web aktif: AI akan menjelajahi internet untuk data terbaru', 'info');
+            } else {
+                showToast('Riset Web dinonaktifkan', 'info');
+            }
+        });
+    }
 
     btnAttach.addEventListener('click', () => {
         fileInput.click();
@@ -100,87 +126,88 @@ export function initInputUI(onSendMessage) {
         });
 
         window.addEventListener('dragenter', (e) => {
-            if (e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
-                dragCounter++;
+            dragCounter++;
+            if (e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
                 dropOverlay.classList.remove('hidden');
-                dropOverlay.classList.add('active');
             }
         });
 
-        window.addEventListener('dragleave', (e) => {
+        window.addEventListener('dragleave', () => {
             dragCounter--;
             if (dragCounter <= 0) {
                 dragCounter = 0;
-                dropOverlay.classList.remove('active');
                 dropOverlay.classList.add('hidden');
             }
         });
 
         window.addEventListener('drop', async (e) => {
             dragCounter = 0;
-            dropOverlay.classList.remove('active');
             dropOverlay.classList.add('hidden');
-
-            const files = e.dataTransfer?.files;
-            if (files && files.length > 0) {
-                await processFiles(Array.from(files));
+            const files = Array.from(e.dataTransfer.files);
+            if (files.length > 0) {
+                await processFiles(files);
             }
         });
     }
 
     function renderImagePreviews() {
+        if (!imagePreviewTray) return;
+
         const attachments = getPendingAttachments();
         if (attachments.length === 0) {
             imagePreviewTray.classList.add('hidden');
             imagePreviewTray.innerHTML = '';
             return;
         }
+
         imagePreviewTray.classList.remove('hidden');
-        imagePreviewTray.innerHTML = '';
-
-        attachments.forEach((attachment, index) => {
-            const item = document.createElement('div');
-            const isImage = attachment.category === 'image';
-            item.className = `image-preview-item ${isImage ? 'is-img' : 'is-file'}`;
-
-            if (isImage) {
-                item.innerHTML = `
-                    <img src="${attachment.data}" alt="${attachment.name}" loading="lazy">
-                    <button class="remove-btn" aria-label="Hapus lampiran" title="Hapus" data-index="${index}">
-                        <i data-lucide="x"></i>
-                    </button>
-                `;
-            } else {
-                let iconName = 'file-text';
-                if (attachment.category === 'pdf') iconName = 'file-text';
-                else if (attachment.category === 'zip') iconName = 'archive';
-                else if (attachment.category === 'text') iconName = 'file-code';
-
-                item.innerHTML = `
-                    <div class="file-badge-preview">
-                        <i data-lucide="${iconName}" class="badge-icon ${attachment.category}"></i>
-                        <div class="badge-texts">
-                            <span class="badge-name" title="${attachment.name}">${attachment.name}</span>
-                            <span class="badge-size">${attachment.sizeFormatted}</span>
-                        </div>
+        imagePreviewTray.innerHTML = attachments.map(item => {
+            if (item.category === 'image' || item.type?.startsWith('image/')) {
+                return `
+                    <div class="preview-item image-item" data-id="${item.id}">
+                        <img src="${item.data}" alt="${item.name}" class="preview-thumbnail">
+                        <button class="btn-remove-attachment" data-id="${item.id}" aria-label="Hapus ${item.name}">
+                            <i data-lucide="x"></i>
+                        </button>
                     </div>
-                    <button class="remove-btn" aria-label="Hapus lampiran" title="Hapus" data-index="${index}">
-                        <i data-lucide="x"></i>
-                    </button>
                 `;
             }
-            imagePreviewTray.appendChild(item);
-        });
+
+            const iconMap = {
+                pdf: 'file-text',
+                zip: 'archive',
+                code: 'file-code',
+                text: 'file-text'
+            };
+            const icon = iconMap[item.category] || 'file';
+
+            return `
+                <div class="preview-item file-item ${item.category || 'text'}" data-id="${item.id}">
+                    <div class="file-item-icon">
+                        <i data-lucide="${icon}"></i>
+                    </div>
+                    <div class="file-item-info">
+                        <span class="file-item-name" title="${item.name}">${item.name}</span>
+                        <span class="file-item-size">${item.sizeFormatted || ''}</span>
+                    </div>
+                    <button class="btn-remove-attachment" data-id="${item.id}" aria-label="Hapus ${item.name}">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+            `;
+        }).join('');
 
         if (typeof lucide !== 'undefined') {
             lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });
         }
 
-        imagePreviewTray.querySelectorAll('.remove-btn').forEach(btn => {
+        imagePreviewTray.querySelectorAll('.btn-remove-attachment').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const index = parseInt(e.currentTarget.dataset.index, 10);
-                removePendingAttachment(index);
+                e.stopPropagation();
+                const id = btn.dataset.id;
+                removePendingAttachment(id);
                 renderImagePreviews();
+                adjustHeight();
                 updateSendButtonState();
             });
         });
@@ -196,7 +223,8 @@ export function initInputUI(onSendMessage) {
         btnSend.disabled = true;
         clearPendingAttachments();
         renderImagePreviews();
-        onSendMessage(text, attachments);
+
+        onSendMessage(text, attachments, { webSearch: isWebSearchActive });
     }
 
     initDragAndDrop();
@@ -208,8 +236,30 @@ export function initInputUI(onSendMessage) {
             chatInput.disabled = !enabled;
             btnAttach.disabled = !enabled;
             fileInput.disabled = !enabled;
-            if (!enabled) btnSend.disabled = true;
-            else updateSendButtonState();
+            if (!enabled) {
+                // Diatur oleh setGenerating
+            } else {
+                updateSendButtonState();
+            }
+        },
+        setGenerating: (isGenerating) => {
+            isGeneratingState = isGenerating;
+            if (isGenerating) {
+                btnSend.disabled = false;
+                btnSend.classList.add('btn-stop');
+                btnSend.title = 'Hentikan respon AI';
+                btnSend.setAttribute('aria-label', 'Hentikan respon AI');
+                btnSend.innerHTML = '<i data-lucide="square"></i>';
+            } else {
+                btnSend.classList.remove('btn-stop');
+                btnSend.title = 'Kirim Pesan';
+                btnSend.setAttribute('aria-label', 'Kirim Pesan');
+                btnSend.innerHTML = '<i data-lucide="arrow-up"></i>';
+                updateSendButtonState();
+            }
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });
+            }
         },
         clearInput: () => {
             chatInput.value = '';

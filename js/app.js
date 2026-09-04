@@ -6,6 +6,8 @@ import { initInputUI, setChatInputValue } from './components/input.js';
 import { initModal } from './components/modal.js';
 import { initSelectionToolbar } from './components/selection-toolbar.js';
 import { showToast } from './utils/toast.js';
+import { formatMemoriesForSystemPrompt } from './services/memory.js';
+import { isImageGenerationRequest, extractImagePrompt, getGeneratedImageUrl } from './services/image-generator.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     initStore();
@@ -14,6 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof lucide !== 'undefined') {
         lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });
     }
+
+    let activeAbortController = null;
 
     const modal = initModal({
         onModelChange: () => updateHeaderModelDisplay(),
@@ -44,13 +48,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    const chatInputControls = initInputUI((text, attachments) => {
-        handleSendMessage(text, attachments);
-    });
+    const chatInputControls = initInputUI(
+        (text, attachments, options) => {
+            handleSendMessage(text, attachments, options);
+        },
+        () => {
+            handleStopGeneration();
+        }
+    );
 
     initSelectionToolbar((promptText) => {
         handleSendMessage(promptText, []);
     });
+
+    function handleStopGeneration() {
+        if (activeAbortController) {
+            activeAbortController.abort();
+            activeAbortController = null;
+        }
+        state.isGenerating = false;
+        state.activeStream = null;
+        saveStore();
+        finalizeStreamingMessage();
+        chatInputControls.setGenerating(false);
+        chatInputControls.enableInput(true);
+        showToast('Respon AI dihentikan', 'info');
+    }
 
     document.addEventListener('keydown', (e) => {
         if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -93,9 +116,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    async function executeStream(chat, assistantMsg, isContinuation = false) {
+    async function executeStream(chat, assistantMsg, isContinuation = false, streamOptions = {}) {
         state.isGenerating = true;
+        chatInputControls.setGenerating(true);
         chatInputControls.enableInput(false);
+
+        activeAbortController = new AbortController();
 
         try {
             const initialPrefix = isContinuation && assistantMsg.content ? assistantMsg.content.trim() : '';
@@ -107,9 +133,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const messagesForApi = [];
-            if (state.config.systemPrompt) {
-                messagesForApi.push({ role: 'system', content: state.config.systemPrompt });
-            }
+
+            // Gabungkan instruksi sistem, kapabilitas file, dan memori lintas chat
+            const fileCapabilityPrompt = `\n\n[KEMAMPUAN MEMBUAT FILE]\nAnda memiliki kemampuan penuh untuk membuat, menyusun, dan membagikan berbagai macam file (seperti Markdown .md, Dokumen Teks .txt, Skrip Python .py, HTML/CSS/JS, CSV, JSON, SQL, Shell script, dll). Jika pengguna meminta Anda membuat, menyimpan, atau menulis file, buatlah isi file tersebut secara lengkap dalam blok kode dengan menyertakan nama file (contoh: \`\`\`markdown:dokumen.md atau \`\`\`python:skrip.py) dan beri penjelasan singkat. Aplikasi ini otomatis menyediakan tombol 'Unduh File' di samping blok kode sehingga pengguna dapat langsung mendownloadnya. Jangan pernah mengatakan bahwa Anda tidak bisa membuat atau menyimpan file.`;
+            const memoriesPrompt = formatMemoriesForSystemPrompt();
+            const fullSystemPrompt = (state.config.systemPrompt || '') + fileCapabilityPrompt + memoriesPrompt;
+
+            messagesForApi.push({ role: 'system', content: fullSystemPrompt });
 
             for (const m of chat.messages) {
                 if (m.id === assistantMsg.id) break;
@@ -148,45 +178,79 @@ document.addEventListener('DOMContentLoaded', () => {
                     const fullText = initialPrefix ? (initialPrefix + '\n\n' + finalText) : finalText;
                     assistantMsg.content = fullText;
                     state.activeStream = null;
+                    activeAbortController = null;
                     saveStore();
                     finalizeStreamingMessage();
                     state.isGenerating = false;
+                    chatInputControls.setGenerating(false);
                     chatInputControls.enableInput(true);
                 },
                 (error) => {
                     state.activeStream = null;
+                    activeAbortController = null;
                     saveStore();
                     finalizeStreamingMessage();
                     updateStreamingMessage(`${assistantMsg.content}\n\n**[Terputus]:** ${error}`);
                     state.isGenerating = false;
+                    chatInputControls.setGenerating(false);
                     chatInputControls.enableInput(true);
                 },
                 {
                     maxTokens: state.maxTokens,
-                    temperature: state.temperature
+                    temperature: state.temperature,
+                    signal: activeAbortController.signal,
+                    webSearch: streamOptions.webSearch || false
                 }
             );
         } catch (err) {
             state.activeStream = null;
+            activeAbortController = null;
             saveStore();
             finalizeStreamingMessage();
             updateStreamingMessage(`**[Error]:** ${err.message || 'Gagal memulai koneksi chat.'}`);
             state.isGenerating = false;
+            chatInputControls.setGenerating(false);
             chatInputControls.enableInput(true);
         }
     }
 
-    async function handleSendMessage(text, attachments) {
+    async function handleSendMessage(text, attachments, options = {}) {
+        if (state.isGenerating) return;
+
+        const currentChat = getCurrentChat();
+        if (!currentChat) return;
+
+        // Deteksi apakah pengguna meminta pembuatan gambar AI
+        if (isImageGenerationRequest(text) && (!attachments || attachments.length === 0)) {
+            const imgPrompt = extractImagePrompt(text);
+            const userMsg = addMessage('user', text, attachments);
+            if (!userMsg) return;
+
+            appendUserMessage(userMsg);
+
+            const imgUrl = getGeneratedImageUrl(imgPrompt);
+            const assistantMarkdown = `Berikut adalah gambar resolusi tinggi yang dihasilkan sesuai permintaan Anda:\n\n![${imgPrompt}](${imgUrl})\n\n> *Prompt Visual:* "${imgPrompt}"`;
+
+            const assistantMsg = addMessage('assistant', assistantMarkdown);
+            saveStore();
+
+            // Render langsung ke pesan
+            const chatWrapper = renderMessages(currentChat);
+            showToast('Gambar AI berhasil dibuat', 'success');
+
+            renderChats({
+                onSelectChat: (id) => { state.currentChatId = id; refreshUI(); },
+                onDeleteChat: (id) => { deleteChat(id); refreshUI(); },
+                onTogglePin: (id) => { togglePinChat(id); refreshUI(); }
+            });
+            return;
+        }
+
         if (!state.config.apiKey) {
             modal.open('api');
             showToast('Silakan masukkan API Key Anda terlebih dahulu', 'error');
             return;
         }
-
-        if (state.isGenerating) return;
-
-        const currentChat = getCurrentChat();
-        if (!currentChat) return;
 
         const userMsg = addMessage('user', text, attachments);
         if (!userMsg) return;
@@ -206,7 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
             onTogglePin: (id) => { togglePinChat(id); refreshUI(); }
         });
 
-        executeStream(currentChat, assistantMsg, false);
+        executeStream(currentChat, assistantMsg, false, options);
     }
 
     refreshUI();
