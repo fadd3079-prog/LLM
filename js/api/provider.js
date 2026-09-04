@@ -73,6 +73,11 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
         max_tokens: options.maxTokens ?? 2048
     };
 
+    // Dukungan plugin riset web OpenRouter
+    if (options.webSearch) {
+        payload.plugins = [{ id: 'web' }];
+    }
+
     try {
         const response = await fetch(url, {
             method: 'POST',
@@ -82,7 +87,8 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
                 'HTTP-Referer': window.location.href,
                 'X-Title': 'AI Workspace'
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            signal: options.signal
         });
 
         if (!response.ok) {
@@ -96,6 +102,11 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
         let done = false;
 
         while (!done) {
+            // Cek jika sinyal abort terpicu selama pembacaan stream
+            if (options.signal?.aborted) {
+                break;
+            }
+
             const { value, done: readerDone } = await reader.read();
             done = readerDone;
             if (value) {
@@ -115,7 +126,12 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
 
         if (onComplete) onComplete(fullText);
     } catch (err) {
-        if (onError) onError(err.message || 'Terjadi kesalahan saat memproses permintaan.');
+        if (err.name === 'AbortError' || options.signal?.aborted) {
+            // Penghentian sengaja oleh pengguna
+            if (onComplete) onComplete(fullText || '');
+        } else {
+            if (onError) onError(err.message || 'Terjadi kesalahan saat memproses permintaan.');
+        }
     }
 }
 
