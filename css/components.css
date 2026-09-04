@@ -383,46 +383,228 @@
     height: 15px;
 }
 
-.message-content h1,
-.message-content h2,
-.message-content h3,
-.message-content h4 {
-    margin: 1.2em 0 0.4em;
+/* ==========================================================================
+   MESSAGE TYPOGRAPHY (Professional Editorial / MS Word Quality)
+   ========================================================================== */
+
+.message-content {
+    color: var(--color-ink);
+    font-size: var(--font-size-md, 15px);
+    line-height: 1.72;
+    word-wrap: break-word;
 }
 
+.message-content > :first-child {
+    margin-top: 0 !important;
+}
+
+.message-content > :last-child {
+    margin-bottom: 0 !important;
+}
+
+/* Headings: Clear typographic hierarchy & vertical rhythm */
+.message-content h1 {
+    font-size: 1.6em;
+    font-weight: 700;
+    letter-spacing: -0.028em;
+    line-height: 1.28;
+    margin: 1.7em 0 0.6em;
+    padding-bottom: 0.35em;
+    border-bottom: 1.5px solid var(--color-hairline-strong);
+    color: var(--color-ink);
+}
+
+.message-content h2 {
+    font-size: 1.32em;
+    font-weight: 650;
+    letter-spacing: -0.022em;
+    line-height: 1.32;
+    margin: 1.5em 0 0.5em;
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--color-hairline);
+    color: var(--color-ink);
+}
+
+.message-content h3 {
+    font-size: 1.15em;
+    font-weight: 650;
+    letter-spacing: -0.018em;
+    line-height: 1.38;
+    margin: 1.3em 0 0.4em;
+    color: var(--color-ink);
+}
+
+.message-content h4 {
+    font-size: 1.02em;
+    font-weight: 600;
+    letter-spacing: -0.012em;
+    line-height: 1.42;
+    margin: 1.15em 0 0.35em;
+    color: var(--color-ink);
+}
+
+.message-content h5,
+.message-content h6 {
+    font-size: 0.92em;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1.45;
+    margin: 1em 0 0.3em;
+    color: var(--color-mute);
+    text-transform: uppercase;
+}
+
+/* Adjacent headings (Title + Subtitle) have tighter spacing */
+.message-content h1 + h2,
+.message-content h2 + h3,
+.message-content h3 + h4 {
+    margin-top: 0.4em;
+}
+
+/* Paragraphs */
 .message-content p {
     margin-bottom: 0.9em;
+    line-height: 1.72;
 }
 
-.message-content p:last-child {
-    margin-bottom: 0;
+/* Bold / Italic / Highlight */
+.message-content strong,
+.message-content b {
+    font-weight: 650;
+    color: var(--color-ink);
 }
 
+/* Subhead paragraph (e.g. bold line introducing a list or table) */
+.message-content p:has(> strong:first-child:last-child) {
+    margin-bottom: 0.45em;
+    color: var(--color-ink);
+}
+
+.message-content em,
+.message-content i {
+    font-style: italic;
+    color: inherit;
+}
+
+/* MS Word Highlighter Style */
+.message-content mark {
+    background-color: #fef08a;
+    color: #1c1917;
+    padding: 0.12em 0.38em;
+    border-radius: 3px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    font-weight: 500;
+}
+
+[data-theme="dark"] .message-content mark,
+.theme-dark .message-content mark {
+    background-color: rgba(234, 179, 8, 0.28);
+    color: #fef08a;
+    border: 1px solid rgba(234, 179, 8, 0.35);
+}
+
+/* Lists & Bullets */
 .message-content ul,
 .message-content ol {
-    margin: 0.8em 0;
-    padding-left: 1.4em;
+    margin: 0.8em 0 0.9em;
+    padding-left: 1.6em;
+    line-height: 1.7;
 }
 
 .message-content li {
     margin-bottom: 0.35em;
+    padding-left: 0.2em;
 }
 
+.message-content li:last-child {
+    margin-bottom: 0;
+}
+
+.message-content li > ul,
+.message-content li > ol {
+    margin-top: 0.25em;
+    margin-bottom: 0.25em;
+    padding-left: 1.4em;
+}
+
+.message-content li::marker {
+    color: var(--color-mute);
+}
+
+.message-content ol > li::marker {
+    font-weight: 600;
+    color: var(--color-body);
+}
+
+/* Divider Line (HR) with Balanced Vertical Breathing Space */
+.message-content hr {
+    border: none;
+    height: 1px;
+    background: var(--color-hairline-strong);
+    margin: 1.8em 0;
+    clear: both;
+}
+
+/* Elements directly following an HR have clean, balanced breathing space */
+.message-content hr + h1,
+.message-content hr + h2,
+.message-content hr + h3,
+.message-content hr + h4,
+.message-content hr + h5,
+.message-content hr + h6 {
+    margin-top: 1.2em;
+}
+
+.message-content hr + p,
+.message-content hr + ul,
+.message-content hr + ol {
+    margin-top: 1.1em;
+}
+
+/* Blockquotes */
 .message-content blockquote {
-    border-left: 3px solid var(--color-coral);
-    padding-left: var(--spacing-md);
-    margin: 1em 0;
+    border-left: 3.5px solid var(--color-coral);
+    padding: 0.65em 1.1em;
+    margin: 1.1em 0;
+    background-color: var(--color-canvas-soft);
+    border-radius: 0 var(--rounded-sm) var(--rounded-sm) 0;
     color: var(--color-body);
     font-style: italic;
 }
 
+.message-content blockquote p {
+    margin-bottom: 0.5em;
+}
+
+.message-content blockquote p:last-child {
+    margin-bottom: 0;
+}
+
+/* Inline Monospace Code */
 .message-content code {
     font-family: var(--font-mono);
-    font-size: 0.88em;
-    padding: 0.15em 0.4em;
+    font-size: 0.86em;
+    padding: 0.16em 0.45em;
     border-radius: var(--rounded-xs);
     background-color: var(--color-canvas-soft-2);
     color: var(--color-coral);
+    border: 1px solid var(--color-hairline);
+    font-weight: 500;
+    word-break: break-word;
+}
+
+/* Links */
+.message-content a {
+    color: var(--color-coral);
+    text-decoration: underline;
+    text-underline-offset: 2.5px;
+    text-decoration-thickness: 1px;
+    transition: opacity 0.15s ease;
+}
+
+.message-content a:hover {
+    opacity: 0.75;
 }
 
 /* ==========================================================================
@@ -1370,3 +1552,252 @@
 .scroll-bottom-btn:hover svg {
     transform: translateY(1px);
 }
+
+/* ==========================================================================
+   TEXT SELECTION TOOLBAR (ChatGPT-style floating actions & prompt input)
+   ========================================================================== */
+
+.selection-toolbar {
+    position: fixed;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-hairline-strong);
+    border-radius: var(--rounded-lg);
+    box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.12), 0 4px 10px -2px rgba(0, 0, 0, 0.06);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    animation: selToolbarIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: auto;
+    overflow: hidden;
+}
+
+.selection-toolbar.hidden {
+    display: none !important;
+}
+
+@keyframes selToolbarIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Actions View Container */
+.sel-actions-view {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 4px;
+}
+
+.sel-actions-view.hidden,
+.sel-input-view.hidden {
+    display: none !important;
+}
+
+.sel-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 11px;
+    border-radius: var(--rounded-md);
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--color-body);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+    user-select: none;
+}
+
+.sel-action-btn:hover {
+    background-color: var(--color-canvas-soft);
+    color: var(--color-ink);
+}
+
+.sel-action-btn:active {
+    transform: scale(0.97);
+}
+
+.sel-action-btn.primary,
+.sel-action-btn[data-action="ask"] {
+    color: var(--color-coral);
+    font-weight: 600;
+    background-color: var(--color-coral-light);
+}
+
+.sel-action-btn.primary:hover,
+.sel-action-btn[data-action="ask"]:hover {
+    background-color: rgba(224, 90, 71, 0.18);
+    color: var(--color-coral);
+}
+
+.sel-action-btn svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+/* Divider after primary button */
+.sel-action-btn[data-action="explain"]::before {
+    content: '';
+    display: block;
+    width: 1px;
+    height: 18px;
+    background: var(--color-hairline-strong);
+    margin-right: 6px;
+    flex-shrink: 0;
+}
+
+/* Inline Mini Prompt Input (ChatGPT-Style) */
+.sel-input-view {
+    display: flex;
+    align-items: center;
+    padding: 4px;
+    width: 380px;
+    max-width: 88vw;
+}
+
+.sel-input-wrapper {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    gap: 6px;
+    background-color: var(--color-canvas-soft);
+    border: 1px solid var(--color-hairline-strong);
+    border-radius: var(--rounded-md);
+    padding: 2px 4px 2px 10px;
+    transition: border-color 0.15s ease;
+}
+
+.sel-input-wrapper:focus-within {
+    border-color: var(--color-coral);
+}
+
+.sel-input-icon {
+    width: 14px;
+    height: 14px;
+    color: var(--color-coral);
+    flex-shrink: 0;
+}
+
+.sel-prompt-input {
+    flex: 1;
+    min-width: 0;
+    height: 30px;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 12.5px;
+    color: var(--color-ink);
+    font-family: inherit;
+}
+
+.sel-prompt-input::placeholder {
+    color: var(--color-mute);
+    font-size: 12px;
+}
+
+.sel-input-send-btn,
+.sel-input-cancel-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--rounded-sm);
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+    flex-shrink: 0;
+}
+
+.sel-input-send-btn {
+    background-color: var(--color-coral);
+    color: #ffffff;
+}
+
+.sel-input-send-btn:hover {
+    background-color: var(--color-coral-hover, #d24e3c);
+    transform: translateY(-1px);
+}
+
+.sel-input-send-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+.sel-input-cancel-btn {
+    background: transparent;
+    color: var(--color-mute);
+}
+
+.sel-input-cancel-btn:hover {
+    background-color: var(--color-canvas-soft-2);
+    color: var(--color-ink);
+}
+
+.sel-input-cancel-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .selection-toolbar {
+        border-radius: var(--rounded-md);
+    }
+
+    .sel-actions-view {
+        gap: 2px;
+        padding: 3px;
+    }
+
+    .sel-action-btn {
+        height: 32px;
+        padding: 0 9px;
+        font-size: 11.5px;
+        gap: 4px;
+    }
+
+    /* Keep icons and labels visible on tablet, hide labels only on very small screens */
+    .sel-action-btn svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    .sel-input-view {
+        width: 320px;
+        max-width: 92vw;
+    }
+
+    .sel-prompt-input {
+        font-size: 13px; /* Prevents auto-zoom on iOS */
+    }
+}
+
+@media (max-width: 480px) {
+    .sel-action-btn span {
+        display: none;
+    }
+
+    .sel-action-btn {
+        width: 34px;
+        padding: 0;
+        justify-content: center;
+    }
+
+    .sel-action-btn[data-action="explain"]::before {
+        display: none;
+    }
+}
+

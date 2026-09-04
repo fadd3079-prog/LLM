@@ -162,9 +162,6 @@
                             <i data-lucide="arrow-up"></i>
                         </button>
                     </div>
-                    <div class="input-footer">
-                        Model AI dapat menghasilkan informasi yang kurang akurat. Harap verifikasi informasi penting.
-                    </div>
                 </div>
             </div>
         </main>
@@ -383,6 +380,46 @@
             </div>
         </div>
     </dialog>
+
+    <div id="selection-toolbar" class="selection-toolbar hidden" aria-label="Aksi teks terpilih">
+        <!-- Tampilan Tombol Aksi Cepat -->
+        <div id="sel-actions-view" class="sel-actions-view">
+            <button class="sel-action-btn primary" data-action="ask" title="Tanya AI tentang teks ini (Ketik instruksi kustom)">
+                <i data-lucide="sparkles"></i>
+                <span>Tanya AI</span>
+            </button>
+            <button class="sel-action-btn" data-action="explain" title="Jelaskan secara mendalam bagian ini">
+                <i data-lucide="book-open"></i>
+                <span>Jelaskan</span>
+            </button>
+            <button class="sel-action-btn" data-action="summarize" title="Ringkas poin penting dari bagian ini">
+                <i data-lucide="zap"></i>
+                <span>Ringkas</span>
+            </button>
+            <button class="sel-action-btn" data-action="quote" title="Kutip ke kolom chat untuk buat pesan">
+                <i data-lucide="quote"></i>
+                <span>Kutip</span>
+            </button>
+            <button class="sel-action-btn" data-action="copy" title="Salin teks terpilih ke clipboard">
+                <i data-lucide="copy"></i>
+                <span>Salin</span>
+            </button>
+        </div>
+
+        <!-- Tampilan Input Mini untuk Instruksi Khusus (seperti ChatGPT) -->
+        <div id="sel-input-view" class="sel-input-view hidden">
+            <div class="sel-input-wrapper">
+                <i data-lucide="sparkles" class="sel-input-icon"></i>
+                <input type="text" id="sel-prompt-input" class="sel-prompt-input" placeholder="Instruksi untuk teks ini... (tekan Enter)" autocomplete="off" />
+                <button id="sel-btn-send" class="sel-input-send-btn" title="Kirim ke AI" aria-label="Kirim">
+                    <i data-lucide="arrow-up"></i>
+                </button>
+                <button id="sel-btn-back" class="sel-input-cancel-btn" title="Kembali / Batal" aria-label="Batal">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+        </div>
+    </div>
 
     <div id="toast-container" class="toast-container" aria-live="polite"></div>
     <script type="module" src="js/app.js"></script>

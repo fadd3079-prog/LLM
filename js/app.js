@@ -4,6 +4,7 @@ import { initSidebar, renderChats, updateHeaderModelDisplay } from './components
 import { initChatScroll, renderMessages, appendUserMessage, appendStreamingMessage, resumeStreamingMessage, updateStreamingMessage, finalizeStreamingMessage } from './components/chat.js';
 import { initInputUI, setChatInputValue } from './components/input.js';
 import { initModal } from './components/modal.js';
+import { initSelectionToolbar } from './components/selection-toolbar.js';
 import { showToast } from './utils/toast.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -45,6 +46,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const chatInputControls = initInputUI((text, attachments) => {
         handleSendMessage(text, attachments);
+    });
+
+    initSelectionToolbar((promptText) => {
+        handleSendMessage(promptText, []);
     });
 
     document.addEventListener('keydown', (e) => {

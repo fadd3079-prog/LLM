@@ -4,6 +4,10 @@ export function parseMarkdown(text) {
         breaks: true,
         gfm: true
     });
-    const rawHtml = marked.parse(text);
-    return DOMPurify.sanitize(rawHtml);
+    // Support ==text== highlight syntax (similar to Obsidian, Bear, and MS Word highlighting)
+    const withHighlights = text.replace(/==([^=\r\n]+)==/g, '<mark>$1</mark>');
+    const rawHtml = marked.parse(withHighlights);
+    return DOMPurify.sanitize(rawHtml, {
+        ADD_TAGS: ['mark']
+    });
 }
