@@ -268,7 +268,8 @@ export function initInputUI(onSendMessage, onStopGeneration) {
             renderImagePreviews();
             btnSend.disabled = true;
         },
-        focus: () => chatInput.focus()
+        focus: () => chatInput.focus(),
+        isWebSearchActive: () => isWebSearchActive
     };
 }
 

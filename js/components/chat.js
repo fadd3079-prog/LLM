@@ -1,8 +1,10 @@
 import { parseMarkdown } from '../utils/markdown.js';
 import { repairIncompleteMarkdown, calculateConsumptionStep } from '../api/stream-parser.js';
 import { formatTime } from '../utils/dom.js';
-import { enhanceCodeBlocks, enhanceTables, appendAssistantActions } from './chat-actions.js';
+import { enhanceCodeBlocks, enhanceTables, appendAssistantActions, appendUserActions, setEditMessageCallback } from './chat-actions.js';
 import { downloadImageFromUrl } from '../services/image-generator.js';
+
+export { setEditMessageCallback };
 
 export function enhanceImages(container) {
     const images = container.querySelectorAll('img:not(.preview-thumbnail):not(.msg-img-attachment)');
@@ -174,6 +176,7 @@ function createMessageElement(msg) {
             content.appendChild(tray);
         }
         wrapper.appendChild(content);
+        appendUserActions(wrapper, content, msg);
     }
 
     if (typeof lucide !== 'undefined') {

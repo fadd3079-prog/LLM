@@ -106,6 +106,25 @@ export function addMessage(role, content, attachments = []) {
     return msg;
 }
 
+export function editMessageAndTruncate(messageId, newContent) {
+    const chat = getCurrentChat();
+    if (!chat) return null;
+
+    const index = chat.messages.findIndex(m => m.id === messageId);
+    if (index === -1) return null;
+
+    chat.messages[index].content = newContent;
+    chat.messages = chat.messages.slice(0, index + 1);
+
+    if (index === 0 && chat.messages[0].role === 'user') {
+        const generatedTitle = newContent.trim().slice(0, 30) || 'Percakapan';
+        chat.title = generatedTitle;
+    }
+
+    saveStore();
+    return chat.messages[index];
+}
+
 export function updateChatTitle(id, title) {
     const chat = state.chats.find(c => c.id === id);
     if (chat) {

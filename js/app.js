@@ -1,7 +1,7 @@
-import { state, initStore, getCurrentChat, addMessage, createChat, deleteChat, togglePinChat, saveStore, setTheme } from './store/index.js';
+import { state, initStore, getCurrentChat, addMessage, editMessageAndTruncate, createChat, deleteChat, togglePinChat, saveStore, setTheme } from './store/index.js';
 import { streamChat } from './api/provider.js';
 import { initSidebar, renderChats, updateHeaderModelDisplay } from './components/sidebar.js';
-import { initChatScroll, renderMessages, appendUserMessage, appendStreamingMessage, resumeStreamingMessage, updateStreamingMessage, finalizeStreamingMessage } from './components/chat.js';
+import { initChatScroll, renderMessages, appendUserMessage, appendStreamingMessage, resumeStreamingMessage, updateStreamingMessage, finalizeStreamingMessage, setEditMessageCallback } from './components/chat.js';
 import { initInputUI, setChatInputValue } from './components/input.js';
 import { initModal } from './components/modal.js';
 import { initSelectionToolbar } from './components/selection-toolbar.js';
@@ -61,6 +61,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initSelectionToolbar((promptText) => {
         handleSendMessage(promptText, []);
+    });
+
+    setEditMessageCallback((messageId, newText) => {
+        handleEditUserMessage(messageId, newText);
     });
 
     function handleStopGeneration() {
@@ -285,6 +289,69 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         executeStream(currentChat, assistantMsg, false, options);
+    }
+
+    async function handleEditUserMessage(messageId, newText) {
+        if (state.isGenerating) {
+            handleStopGeneration();
+        }
+
+        const currentChat = getCurrentChat();
+        if (!currentChat) return;
+
+        const targetMsg = currentChat.messages.find(m => m.id === messageId);
+        if (!targetMsg) return;
+
+        // Edit isi pesan dan potong percakapan setelah pesan ini (respon sebelumnya & di bawahnya terhapus)
+        const editedMsg = editMessageAndTruncate(messageId, newText);
+        if (!editedMsg) return;
+
+        // Cek jika prompt yang diedit adalah permintaan gambar AI
+        if (isImageGenerationRequest(newText) && (!editedMsg.attachments || editedMsg.attachments.length === 0)) {
+            const imgPrompt = extractImagePrompt(newText);
+            const imgUrl = getGeneratedImageUrl(imgPrompt);
+            const assistantMarkdown = `Berikut adalah gambar resolusi tinggi yang dihasilkan sesuai permintaan Anda:\n\n![${imgPrompt}](${imgUrl})\n\n> *Prompt Visual:* "${imgPrompt}"`;
+
+            addMessage('assistant', assistantMarkdown);
+            saveStore();
+            renderMessages(currentChat);
+            showToast('Prompt diperbarui & gambar AI baru dibuat', 'success');
+
+            renderChats({
+                onSelectChat: (id) => { state.currentChatId = id; refreshUI(); },
+                onDeleteChat: (id) => { deleteChat(id); refreshUI(); },
+                onTogglePin: (id) => { togglePinChat(id); refreshUI(); }
+            });
+            return;
+        }
+
+        if (!state.config.apiKey) {
+            renderMessages(currentChat);
+            modal.open('api');
+            showToast('Silakan masukkan API Key Anda terlebih dahulu', 'error');
+            return;
+        }
+
+        // Render kembali pesan hingga prompt yang diedit (respon lama terhapus)
+        renderMessages(currentChat);
+
+        // Tambah pesan asisten kosong untuk menampung streaming respon baru
+        const assistantMsg = addMessage('assistant', '');
+        state.activeStream = {
+            chatId: currentChat.id,
+            messageId: assistantMsg.id
+        };
+        saveStore();
+
+        renderChats({
+            onSelectChat: (id) => { state.currentChatId = id; refreshUI(); },
+            onDeleteChat: (id) => { deleteChat(id); refreshUI(); },
+            onTogglePin: (id) => { togglePinChat(id); refreshUI(); }
+        });
+
+        const isWebSearch = chatInputControls?.isWebSearchActive ? chatInputControls.isWebSearchActive() : false;
+        executeStream(currentChat, assistantMsg, false, { webSearch: isWebSearch });
+        showToast('Prompt diperbarui, AI merespon ulang...', 'info');
     }
 
     refreshUI();

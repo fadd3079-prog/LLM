@@ -2381,3 +2381,136 @@
     height: 11px;
     color: var(--color-mute);
 }
+
+/* User Message Actions & Edit Mode */
+.user-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+    opacity: 0;
+    transition: opacity 0.16s ease;
+    justify-content: flex-end;
+}
+
+.message-wrapper.user:hover .user-actions,
+.message-wrapper.user:focus-within .user-actions {
+    opacity: 1;
+}
+
+@media (hover: none) {
+    .user-actions {
+        opacity: 0.85;
+    }
+}
+
+.user-action-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--rounded-sm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--color-mute);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.user-action-btn:hover {
+    color: var(--color-ink);
+    background-color: var(--color-canvas-soft);
+    border-color: var(--color-hairline);
+}
+
+.user-action-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* User Message Edit Box */
+.user-edit-box {
+    width: 100%;
+    max-width: 82%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background-color: var(--color-surface);
+    border: 1.5px solid var(--color-coral);
+    border-radius: var(--rounded-md);
+    padding: 10px 12px;
+    box-shadow: var(--shadow-level-2);
+    animation: messageFadeIn 0.16s ease-out;
+}
+
+.user-edit-textarea {
+    width: 100%;
+    min-height: 56px;
+    max-height: 260px;
+    padding: 4px 0;
+    font-family: inherit;
+    font-size: 14.5px;
+    line-height: 1.55;
+    color: var(--color-ink);
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: none;
+    word-break: break-word;
+}
+
+.user-edit-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--color-hairline);
+}
+
+.user-edit-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    font-size: 12.5px;
+    font-weight: 500;
+    border-radius: var(--rounded-sm);
+    border: 1px solid var(--color-hairline-strong);
+    background-color: var(--color-canvas-soft);
+    color: var(--color-body);
+    cursor: pointer;
+    transition: all 0.14s ease;
+    user-select: none;
+}
+
+.user-edit-btn:hover {
+    background-color: var(--color-canvas-soft-2);
+    color: var(--color-ink);
+    border-color: var(--color-hairline-strong);
+}
+
+.user-edit-btn.primary {
+    background-color: var(--color-coral);
+    color: #ffffff;
+    border-color: transparent;
+    font-weight: 600;
+}
+
+.user-edit-btn.primary:hover {
+    background-color: var(--color-coral-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-level-1);
+}
+
+.user-edit-btn svg {
+    width: 13px;
+    height: 13px;
+}
+
+@media (max-width: 768px) {
+    .user-edit-box {
+        max-width: 100%;
+    }
+}

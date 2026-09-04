@@ -44,7 +44,13 @@ const DICTIONARY = {
         memory_title: 'Memori Lintas Percakapan',
         empty_memory: 'Belum ada memori tersimpan.',
         clear_memories: 'Hapus Semua Memori',
-        save: 'Tersimpan'
+        save: 'Tersimpan',
+        edit: 'Edit Prompt',
+        edit_prompt_title: 'Edit prompt ini & respon ulang',
+        cancel: 'Batal',
+        send_and_respond: 'Kirim & Respon Baru',
+        prompt_empty_warning: 'Pesan tidak boleh kosong',
+        prompt_updated_toast: 'Prompt diperbarui, AI merespon ulang...'
     },
     en: {
         new_chat: 'New Chat',
@@ -84,7 +90,13 @@ const DICTIONARY = {
         memory_title: 'Cross-Chat Memory',
         empty_memory: 'No saved memories yet.',
         clear_memories: 'Clear All Memories',
-        save: 'Saved'
+        save: 'Saved',
+        edit: 'Edit Prompt',
+        edit_prompt_title: 'Edit this prompt & regenerate',
+        cancel: 'Cancel',
+        send_and_respond: 'Send & Regenerate',
+        prompt_empty_warning: 'Message cannot be empty',
+        prompt_updated_toast: 'Prompt updated, AI is generating new response...'
     }
 };
 
