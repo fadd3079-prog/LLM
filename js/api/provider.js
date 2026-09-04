@@ -106,14 +106,14 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
         function buildComposedOutput() {
             let composed = '';
             if (accumulatedReasoning) {
-                composed += `<details class="thought-box" open><summary class="thought-summary"><i data-lucide="brain"></i> <span>Proses Penalaran</span></summary><div class="thought-body">\n\n${accumulatedReasoning}\n\n</div></details>\n\n`;
+                composed += `<details class="thought-box" open><summary class="thought-summary"><i data-lucide="brain"></i> <span>Thinking</span></summary><div class="thought-body">\n\n${accumulatedReasoning}\n\n</div></details>\n\n`;
             }
 
             let mainContent = fullText;
             // Tangani tag <think> jika model (seperti DeepSeek) mengeluarkannya di konten teks biasa
             if (mainContent.includes('<think>')) {
                 mainContent = mainContent.replace(/<think>([\s\S]*?)(?:<\/think>|$)/g, (match, p1) => {
-                    return `<details class="thought-box" open><summary class="thought-summary"><i data-lucide="brain"></i> <span>Proses Penalaran</span></summary><div class="thought-body">\n\n${p1.trim()}\n\n</div></details>\n\n`;
+                    return `<details class="thought-box" open><summary class="thought-summary"><i data-lucide="brain"></i> <span>Thinking</span></summary><div class="thought-body">\n\n${p1.trim()}\n\n</div></details>\n\n`;
                 });
             }
 
@@ -125,7 +125,7 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
                     try { domain = new URL(url).hostname.replace(/^www\./, ''); } catch(e) {}
                     return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="source-tag"><i data-lucide="external-link"></i> ${domain}</a>`;
                 }).join('');
-                composed += `\n\n<div class="sources-tray"><div class="sources-title"><i data-lucide="globe"></i> Sumber Riset:</div><div class="sources-list">${citeList}</div></div>`;
+                composed += `\n\n<div class="sources-tray"><div class="sources-title"><i data-lucide="globe"></i> Sources</div><div class="sources-list">${citeList}</div></div>`;
             }
 
             return composed;

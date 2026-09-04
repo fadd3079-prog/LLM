@@ -218,30 +218,39 @@ function setupStreamingWrapper(initialText = '', isResume = false, streamMode = 
         const wrapper = document.createElement('div');
         wrapper.className = 'message-wrapper assistant streaming';
 
-        let placeholderHtml = '<div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
-        if (!initialText) {
-            if (streamMode === 'web') {
-                placeholderHtml = `
-                    <div class="stream-status-pill web-searching">
-                        <i data-lucide="globe" class="pulse-status-icon"></i>
-                        <span>Menjelajahi internet & meriset sumber informasi terkini...</span>
-                    </div>
-                `;
-            } else if (streamMode === 'thinking') {
-                placeholderHtml = `
-                    <div class="stream-status-pill ai-thinking">
-                        <i data-lucide="brain" class="pulse-status-icon"></i>
-                        <span>Menganalisis & menyusun proses penalaran logis...</span>
-                    </div>
-                `;
-            } else {
-                placeholderHtml = `
-                    <div class="stream-status-pill ai-processing">
-                        <i data-lucide="sparkles" class="pulse-status-icon"></i>
-                        <span>Menyiapkan jawaban...</span>
-                    </div>
-                `;
-            }
+        let placeholderHtml = '';
+        if (streamMode === 'web') {
+            placeholderHtml = `
+                <div class="stream-loader minimal web">
+                    <i data-lucide="globe" class="loader-icon-spin"></i>
+                    <span class="loader-text">Searching</span>
+                    <span class="loader-dots">
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                    </span>
+                </div>
+            `;
+        } else if (streamMode === 'thinking') {
+            placeholderHtml = `
+                <div class="stream-loader minimal thinking">
+                    <i data-lucide="sparkles" class="loader-icon-pulse"></i>
+                    <span class="loader-text">Thinking</span>
+                    <span class="loader-dots">
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                    </span>
+                </div>
+            `;
+        } else {
+            placeholderHtml = `
+                <div class="stream-loader dots-only">
+                    <span class="pulse-dot"></span>
+                    <span class="pulse-dot"></span>
+                    <span class="pulse-dot"></span>
+                </div>
+            `;
         }
 
         wrapper.innerHTML = `
