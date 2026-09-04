@@ -10,15 +10,30 @@ export function enhanceCodeBlocks(container) {
 
         const code = pre.querySelector('code');
         let lang = 'CODE';
+        let infoString = '';
         if (code && code.className) {
-            const match = code.className.match(/language-([a-zA-Z0-9_.-]+)/);
-            if (match && match[1]) lang = match[1];
+            const match = code.className.match(/language-([^\s]+)/);
+            if (match && match[1]) {
+                infoString = match[1];
+                // Mendukung format ```python:analisis_data.py (sesuai system prompt)
+                const sepIdx = infoString.indexOf(':');
+                if (sepIdx !== -1) {
+                    lang = infoString.slice(0, sepIdx);
+                } else {
+                    lang = infoString;
+                }
+            }
         }
 
         const card = document.createElement('div');
         card.className = 'code-block-card';
 
-        const filename = inferFilenameFromBlock(lang);
+        // Jika infoString memuat "bahasa:nama_file.ext" gunakan nama file;
+        // jika tidak, infer dari bahasa lewat inferFilenameFromBlock.
+        const colonIdx = infoString.indexOf(':');
+        const filename = colonIdx !== -1 && infoString.slice(colonIdx + 1).includes('.')
+            ? infoString.slice(colonIdx + 1)
+            : inferFilenameFromBlock(lang);
 
         const header = document.createElement('div');
         header.className = 'code-block-header';
@@ -96,7 +111,7 @@ export function enhanceTables(container) {
     });
 }
 
-export function appendAssistantActions(wrapper, contentElement) {
+export function appendAssistantActions(wrapper, contentElement, rawMarkdown = '') {
     const actions = document.createElement('div');
     actions.className = 'assistant-actions';
 
@@ -161,7 +176,7 @@ export function appendAssistantActions(wrapper, contentElement) {
         }
     });
 
-    // Tombol Download Format (.md)
+    // Tombol Download Format (.md) - pakai source Markdown, bukan innerText hasil render
     const exportBtn = document.createElement('button');
     exportBtn.className = 'icon-button export-icon-btn';
     exportBtn.setAttribute('aria-label', 'Download (.md)');
@@ -170,10 +185,14 @@ export function appendAssistantActions(wrapper, contentElement) {
 
     exportBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const clone = contentElement.cloneNode(true);
-        clone.querySelectorAll('.code-block-header, .assistant-actions, .user-actions, .sources-tray, .thought-box').forEach(h => h.remove());
-        const plainText = clone.innerText || clone.textContent || '';
-        exportMessageAsFile(plainText, 'md', 'jawaban_ai');
+        const source = rawMarkdown && rawMarkdown.trim()
+            ? rawMarkdown
+            : (() => {
+                const clone = contentElement.cloneNode(true);
+                clone.querySelectorAll('.code-block-header, .assistant-actions, .user-actions, .sources-tray, .thought-box').forEach(h => h.remove());
+                return clone.innerText || clone.textContent || '';
+            })();
+        exportMessageAsFile(source, 'md', 'jawaban_ai');
         showToast('File Markdown (.md) berhasil didownload', 'success');
     });
 

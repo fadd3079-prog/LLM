@@ -1,4 +1,4 @@
-import { parseSSEChunk } from './stream-parser.js';
+import { createSSEParser } from './stream-parser.js';
 
 export const PROVIDERS_CONFIG = {
     openrouter: {
@@ -153,7 +153,8 @@ export const PROVIDERS_CONFIG = {
     cohere: {
         id: 'cohere',
         name: 'Cohere',
-        defaultBaseUrl: 'https://api.cohere.com/v2',
+        // Gunakan OpenAI compatibility endpoint agar request /chat/completions valid.
+        defaultBaseUrl: 'https://api.cohere.com/compatibility/v1',
         keyUrl: 'https://dashboard.cohere.com/api-keys',
         helpText: 'Ambil API Key Cohere',
         keyPlaceholder: '...',
@@ -476,6 +477,7 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
 async function readStreamResponse(response, onChunk, onComplete, onError, options = {}) {
     const reader = response.body.getReader();
     const decoder = new TextDecoder('utf-8');
+    const sse = createSSEParser();
     let fullText = '';
     let accumulatedReasoning = '';
     let collectedCitations = [];
@@ -509,6 +511,20 @@ async function readStreamResponse(response, onChunk, onComplete, onError, option
         return composed;
     }
 
+    const onDelta = (deltaContent, meta = {}) => {
+        if (meta.reasoning) {
+            accumulatedReasoning += meta.reasoning;
+        }
+        if (meta.citations && Array.isArray(meta.citations)) {
+            collectedCitations = [...new Set([...collectedCitations, ...meta.citations])];
+        }
+        if (deltaContent) {
+            fullText += deltaContent;
+        }
+        const composed = buildComposedOutput();
+        if (onChunk) onChunk(composed);
+    };
+
     try {
         while (!done) {
             if (options.signal?.aborted) {
@@ -519,28 +535,15 @@ async function readStreamResponse(response, onChunk, onComplete, onError, option
             done = readerDone;
             if (value) {
                 const chunk = decoder.decode(value, { stream: true });
-                parseSSEChunk(
-                    chunk,
-                    (deltaContent, meta = {}) => {
-                        if (meta.reasoning) {
-                            accumulatedReasoning += meta.reasoning;
-                        }
-                        if (meta.citations && Array.isArray(meta.citations)) {
-                            collectedCitations = [...new Set([...collectedCitations, ...meta.citations])];
-                        }
-                        if (deltaContent) {
-                            fullText += deltaContent;
-                        }
-
-                        const composed = buildComposedOutput();
-                        if (onChunk) onChunk(composed);
-                    },
-                    () => {
-                        done = true;
-                    }
-                );
+                sse.feed(chunk, onDelta, () => { done = true; });
             }
         }
+
+        // Flush decoder agar potongan multibyte di akhir stream tidak hilang.
+        const tail = decoder.decode();
+        if (tail) sse.feed(tail, onDelta, () => { done = true; });
+        // Flush sisa buffer parser untuk event yang tidak ditutup \n\n.
+        sse.flush(onDelta, () => { done = true; });
 
         const finalOutput = buildComposedOutput();
         if (onComplete) onComplete(finalOutput);

@@ -1,4 +1,5 @@
 import { loadStateFromStorage, saveStateToStorage, DEFAULT_CONFIG } from './persister.js';
+import { PROVIDERS_CONFIG } from '../api/provider.js';
 
 export const state = {
     config: { ...DEFAULT_CONFIG },
@@ -57,6 +58,8 @@ export function setProvider(providerId) {
     if (state.config.providerModels[providerId]) {
         state.selectedModel = state.config.providerModels[providerId];
     }
+    const cfg = PROVIDERS_CONFIG[providerId];
+    state.config.baseUrl = state.config.customBaseUrls[providerId] || (cfg && cfg.defaultBaseUrl) || state.config.baseUrl;
     saveStore();
 }
 
@@ -179,10 +182,26 @@ export function setTheme(theme) {
     saveStore();
 }
 
+let systemThemeMql = null;
+let systemThemeHandler = null;
+
 export function applyTheme(theme) {
     const html = document.documentElement;
     if (theme === 'system') {
-        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (!systemThemeMql && window.matchMedia) {
+            systemThemeMql = window.matchMedia('(prefers-color-scheme: dark)');
+            systemThemeHandler = (e) => {
+                if (state.config.theme === 'system') {
+                    html.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+                }
+            };
+            if (systemThemeMql.addEventListener) {
+                systemThemeMql.addEventListener('change', systemThemeHandler);
+            } else if (systemThemeMql.addListener) {
+                systemThemeMql.addListener(systemThemeHandler);
+            }
+        }
+        const isDark = systemThemeMql ? systemThemeMql.matches : false;
         html.setAttribute('data-theme', isDark ? 'dark' : 'light');
     } else {
         html.setAttribute('data-theme', theme);
@@ -197,8 +216,18 @@ export function addPendingAttachment(att) {
     state.pendingAttachments.push(att);
 }
 
-export function removePendingAttachment(index) {
-    state.pendingAttachments.splice(index, 1);
+export function removePendingAttachmentById(id) {
+    if (id == null) return;
+    state.pendingAttachments = state.pendingAttachments.filter(x => x.id !== id);
+}
+
+// Kompatibilitas: parameter numeric dianggap index, selain itu dianggap id.
+export function removePendingAttachment(idOrIndex) {
+    if (typeof idOrIndex === 'number') {
+        state.pendingAttachments.splice(idOrIndex, 1);
+    } else {
+        removePendingAttachmentById(idOrIndex);
+    }
 }
 
 export function clearPendingAttachments() {

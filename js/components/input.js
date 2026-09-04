@@ -1,4 +1,4 @@
-import { getPendingAttachments, clearPendingAttachments, addPendingAttachment, removePendingAttachment } from '../store/index.js';
+import { getPendingAttachments, clearPendingAttachments, addPendingAttachment, removePendingAttachmentById } from '../store/index.js';
 import { validateFile, processFile, formatBytes, getFileCategory } from '../utils/file-processor.js';
 import { showToast } from '../utils/toast.js';
 
@@ -202,90 +202,178 @@ export function initInputUI(onSendMessage, onStopGeneration) {
 
         imagePreviewTray.classList.remove('hidden');
 
-        // Render completed attachments
-        const attachmentsHtml = attachments.map(item => {
+        const fragment = document.createDocumentFragment();
+
+        // Render completed attachments (DOM construction - no innerHTML for user data)
+        attachments.forEach(item => {
+            const chip = document.createElement('div');
+            chip.className = `attachment-chip ${item.category === 'image' || item.type?.startsWith('image/') ? 'image-chip' : `file-chip ${item.category || 'text'}`}`;
+            chip.dataset.id = item.id;
+            chip.title = item.name || '';
+
             if (item.category === 'image' || item.type?.startsWith('image/')) {
-                return `
-                    <div class="attachment-chip image-chip" data-id="${item.id}" title="${item.name}">
-                        <div class="attachment-thumb-wrap">
-                            <img src="${item.data}" alt="${item.name}" class="attachment-thumb">
-                        </div>
-                        <div class="attachment-chip-info">
-                            <span class="attachment-chip-name">${item.name}</span>
-                            <span class="attachment-chip-meta">${item.sizeFormatted || 'Gambar'}</span>
-                        </div>
-                        <button class="attachment-chip-remove" data-id="${item.id}" type="button" aria-label="Hapus ${item.name}" title="Hapus berkas">
-                            <i data-lucide="x"></i>
-                        </button>
-                    </div>
-                `;
+                const thumbWrap = document.createElement('div');
+                thumbWrap.className = 'attachment-thumb-wrap';
+                const img = document.createElement('img');
+                img.src = item.data || '';
+                img.alt = item.name || '';
+                img.className = 'attachment-thumb';
+                thumbWrap.appendChild(img);
+
+                const info = document.createElement('div');
+                info.className = 'attachment-chip-info';
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'attachment-chip-name';
+                nameSpan.textContent = item.name || '';
+                const metaSpan = document.createElement('span');
+                metaSpan.className = 'attachment-chip-meta';
+                metaSpan.textContent = item.sizeFormatted || 'Gambar';
+                info.appendChild(nameSpan);
+                info.appendChild(metaSpan);
+
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'attachment-chip-remove';
+                removeBtn.dataset.id = item.id;
+                removeBtn.type = 'button';
+                removeBtn.setAttribute('aria-label', `Hapus ${item.name || ''}`);
+                removeBtn.title = 'Hapus berkas';
+                const xIcon = document.createElement('i');
+                xIcon.dataset.lucide = 'x';
+                removeBtn.appendChild(xIcon);
+
+                chip.appendChild(thumbWrap);
+                chip.appendChild(info);
+                chip.appendChild(removeBtn);
+            } else {
+                const iconMap = {
+                    pdf: 'file-text',
+                    presentation: 'presentation',
+                    document: 'file-text',
+                    spreadsheet: 'table-2',
+                    zip: 'archive',
+                    code: 'file-code',
+                    text: 'file-text'
+                };
+                const icon = iconMap[item.category] || 'file-text';
+
+                const iconBadge = document.createElement('div');
+                iconBadge.className = `attachment-icon-badge ${item.category || 'text'}`;
+                const lucideIcon = document.createElement('i');
+                lucideIcon.dataset.lucide = icon;
+                iconBadge.appendChild(lucideIcon);
+
+                const info = document.createElement('div');
+                info.className = 'attachment-chip-info';
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'attachment-chip-name';
+                nameSpan.textContent = item.name || '';
+                const metaSpan = document.createElement('span');
+                metaSpan.className = 'attachment-chip-meta';
+
+                let metaText = item.sizeFormatted || '';
+                if (item.pageCount) {
+                    metaText += ` • ${item.pageCount} Hal`;
+                } else if (item.slideCount) {
+                    metaText += ` • ${item.slideCount} Slide`;
+                } else if (item.ext) {
+                    metaText += ` • ${item.ext.toUpperCase()}`;
+                }
+                metaSpan.textContent = metaText;
+                info.appendChild(nameSpan);
+                info.appendChild(metaSpan);
+
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'attachment-chip-remove';
+                removeBtn.dataset.id = item.id;
+                removeBtn.type = 'button';
+                removeBtn.setAttribute('aria-label', `Hapus ${item.name || ''}`);
+                removeBtn.title = 'Hapus berkas';
+                const xIcon = document.createElement('i');
+                xIcon.dataset.lucide = 'x';
+                removeBtn.appendChild(xIcon);
+
+                chip.appendChild(iconBadge);
+                chip.appendChild(info);
+                chip.appendChild(removeBtn);
             }
+            fragment.appendChild(chip);
+        });
 
-            const iconMap = {
-                pdf: 'file-text',
-                presentation: 'presentation',
-                document: 'file-text',
-                spreadsheet: 'table-2',
-                zip: 'archive',
-                code: 'file-code',
-                text: 'file-text'
-            };
-            const icon = iconMap[item.category] || 'file-text';
-
-            let metaText = item.sizeFormatted || '';
-            if (item.pageCount) {
-                metaText += ` • ${item.pageCount} Hal`;
-            } else if (item.slideCount) {
-                metaText += ` • ${item.slideCount} Slide`;
-            } else if (item.ext) {
-                metaText += ` • ${item.ext.toUpperCase()}`;
-            }
-
-            return `
-                <div class="attachment-chip file-chip ${item.category || 'text'}" data-id="${item.id}" title="${item.name}">
-                    <div class="attachment-icon-badge ${item.category || 'text'}">
-                        <i data-lucide="${icon}"></i>
-                    </div>
-                    <div class="attachment-chip-info">
-                        <span class="attachment-chip-name">${item.name}</span>
-                        <span class="attachment-chip-meta">${metaText}</span>
-                    </div>
-                    <button class="attachment-chip-remove" data-id="${item.id}" type="button" aria-label="Hapus ${item.name}" title="Hapus berkas">
-                        <i data-lucide="x"></i>
-                    </button>
-                </div>
-            `;
-        }).join('');
-
-        // Render actively processing/uploading files with elegant lightweight animation
-        const loadingHtml = processingFiles.map(item => {
+        // Render actively processing/uploading files
+        processingFiles.forEach(item => {
             const cat = item.category || 'text';
-            return `
-                <div class="attachment-chip loading-chip ${cat}" data-id="${item.id}" title="Memproses ${item.name}...">
-                    <div class="attachment-icon-badge loading ${cat}">
-                        <svg class="loading-spinner-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <circle class="spinner-track" cx="12" cy="12" r="9" stroke-width="2.5"></circle>
-                            <circle class="spinner-head" cx="12" cy="12" r="9" stroke-width="2.5" stroke-dasharray="24 38" stroke-linecap="round"></circle>
-                        </svg>
-                    </div>
-                    <div class="attachment-chip-info">
-                        <span class="attachment-chip-name">${item.name}</span>
-                        <span class="attachment-chip-meta loading-meta">
-                            <span class="loading-pulse-dot"></span>
-                            <span class="loading-meta-text">Memproses ${item.sizeFormatted}...</span>
-                        </span>
-                    </div>
-                    <button class="attachment-chip-remove loading-cancel" data-id="${item.id}" type="button" aria-label="Batal ${item.name}" title="Batalkan unggahan">
-                        <i data-lucide="x"></i>
-                    </button>
-                    <div class="chip-progress-track">
-                        <div class="chip-progress-bar"></div>
-                    </div>
-                </div>
-            `;
-        }).join('');
+            const chip = document.createElement('div');
+            chip.className = `attachment-chip loading-chip ${cat}`;
+            chip.dataset.id = item.id;
+            chip.title = `Memproses ${item.name || ''}...`;
 
-        imagePreviewTray.innerHTML = attachmentsHtml + loadingHtml;
+            const iconBadge = document.createElement('div');
+            iconBadge.className = `attachment-icon-badge loading ${cat}`;
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.classList.add('loading-spinner-svg');
+            svg.setAttribute('viewBox', '0 0 24 24');
+            svg.setAttribute('fill', 'none');
+            svg.setAttribute('stroke', 'currentColor');
+            const track = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            track.classList.add('spinner-track');
+            track.setAttribute('cx', '12');
+            track.setAttribute('cy', '12');
+            track.setAttribute('r', '9');
+            track.setAttribute('stroke-width', '2.5');
+            const head = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            head.classList.add('spinner-head');
+            head.setAttribute('cx', '12');
+            head.setAttribute('cy', '12');
+            head.setAttribute('r', '9');
+            head.setAttribute('stroke-width', '2.5');
+            head.setAttribute('stroke-dasharray', '24 38');
+            head.setAttribute('stroke-linecap', 'round');
+            svg.appendChild(track);
+            svg.appendChild(head);
+            iconBadge.appendChild(svg);
+
+            const info = document.createElement('div');
+            info.className = 'attachment-chip-info';
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'attachment-chip-name';
+            nameSpan.textContent = item.name || '';
+            const metaSpan = document.createElement('span');
+            metaSpan.className = 'attachment-chip-meta loading-meta';
+            const pulseDot = document.createElement('span');
+            pulseDot.className = 'loading-pulse-dot';
+            const metaText = document.createElement('span');
+            metaText.className = 'loading-meta-text';
+            metaText.textContent = `Memproses ${item.sizeFormatted || ''}...`;
+            metaSpan.appendChild(pulseDot);
+            metaSpan.appendChild(metaText);
+            info.appendChild(nameSpan);
+            info.appendChild(metaSpan);
+
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'attachment-chip-remove loading-cancel';
+            removeBtn.dataset.id = item.id;
+            removeBtn.type = 'button';
+            removeBtn.setAttribute('aria-label', `Batal ${item.name || ''}`);
+            removeBtn.title = 'Batalkan unggahan';
+            const xIcon = document.createElement('i');
+            xIcon.dataset.lucide = 'x';
+            removeBtn.appendChild(xIcon);
+
+            const progressTrack = document.createElement('div');
+            progressTrack.className = 'chip-progress-track';
+            const progressBar = document.createElement('div');
+            progressBar.className = 'chip-progress-bar';
+            progressTrack.appendChild(progressBar);
+
+            chip.appendChild(iconBadge);
+            chip.appendChild(info);
+            chip.appendChild(removeBtn);
+            chip.appendChild(progressTrack);
+            fragment.appendChild(chip);
+        });
+
+        imagePreviewTray.innerHTML = '';
+        imagePreviewTray.appendChild(fragment);
 
         if (typeof lucide !== 'undefined') {
             lucide.createIcons({ attrs: { 'stroke-width': '1.8' } });
@@ -295,7 +383,7 @@ export function initInputUI(onSendMessage, onStopGeneration) {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const id = btn.dataset.id;
-                removePendingAttachment(id);
+                removePendingAttachmentById(id);
                 renderImagePreviews();
                 adjustHeight();
                 updateSendButtonState();
@@ -328,10 +416,16 @@ export function initInputUI(onSendMessage, onStopGeneration) {
         chatInput.value = '';
         chatInput.style.height = 'auto';
         btnSend.disabled = true;
-        clearPendingAttachments();
+        // Catatan: pendingAttachments tidak dikosongkan di sini.
+        // Input layer hanya melepas tampilan; aplikasi yang memutuskan
+        // apakah lampiran benar-benar dipakai (lihat handler di app.js).
+        // Jika aplikasi menolak (misal API key kosong), state tetap utuh
+        // sehingga pengguna tidak perlu unggah ulang.
         renderImagePreviews();
 
-        onSendMessage(text, attachments, { webSearch: isWebSearchActive });
+        onSendMessage(text, attachments, { webSearch: isWebSearchActive }, {
+            clearAttachments: () => clearPendingAttachments()
+        });
     }
 
     initDragAndDrop();

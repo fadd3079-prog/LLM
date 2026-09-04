@@ -149,17 +149,41 @@ export function initModal({ onModelChange, onClearAll }) {
             return;
         }
 
-        memoryList.innerHTML = memories.map(m => `
-            <div class="memory-item" data-id="${m.id}">
-                <div class="memory-item-content">
-                    <i data-lucide="sparkle" class="memory-item-icon"></i>
-                    <span class="memory-text">${m.text}</span>
-                </div>
-                <button class="btn-delete-memory" data-id="${m.id}" title="Hapus memori ini" aria-label="Hapus memori">
-                    <i data-lucide="trash-2"></i>
-                </button>
-            </div>
-        `).join('');
+        const fragment = document.createDocumentFragment();
+        memories.forEach(m => {
+            const item = document.createElement('div');
+            item.className = 'memory-item';
+            item.dataset.id = m.id;
+
+            const contentWrap = document.createElement('div');
+            contentWrap.className = 'memory-item-content';
+
+            const icon = document.createElement('i');
+            icon.dataset.lucide = 'sparkle';
+            icon.className = 'memory-item-icon';
+
+            const textSpan = document.createElement('span');
+            textSpan.className = 'memory-text';
+            textSpan.textContent = m.text;
+
+            contentWrap.appendChild(icon);
+            contentWrap.appendChild(textSpan);
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn-delete-memory';
+            deleteBtn.dataset.id = m.id;
+            deleteBtn.title = 'Hapus memori ini';
+            deleteBtn.setAttribute('aria-label', 'Hapus memori');
+            const trashIcon = document.createElement('i');
+            trashIcon.dataset.lucide = 'trash-2';
+            deleteBtn.appendChild(trashIcon);
+
+            item.appendChild(contentWrap);
+            item.appendChild(deleteBtn);
+            fragment.appendChild(item);
+        });
+        memoryList.innerHTML = '';
+        memoryList.appendChild(fragment);
 
         if (typeof lucide !== 'undefined') {
             lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });

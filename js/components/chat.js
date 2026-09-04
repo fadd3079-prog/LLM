@@ -171,23 +171,52 @@ function createMessageElement(msg) {
         enhanceTables(content);
         enhanceImages(content);
         wrapper.appendChild(content);
-        appendAssistantActions(wrapper, content);
+        appendAssistantActions(wrapper, content, msg.content);
     } else {
         content.textContent = msg.content;
         if (msg.attachments?.length > 0) {
             const tray = document.createElement('div');
             tray.className = 'message-attachments';
-            tray.innerHTML = msg.attachments.map(a => {
+            msg.attachments.forEach(a => {
                 if (a.category === 'image' || a.type?.startsWith('image/')) {
-                    return `<img src="${a.data}" alt="${a.name}" class="msg-img-attachment" style="width:52px;height:52px;object-fit:cover;border-radius:var(--rounded-md);border:1px solid var(--color-hairline-strong);">`;
+                    const img = document.createElement('img');
+                    img.src = a.data || '';
+                    img.alt = a.name || 'Gambar';
+                    img.className = 'msg-img-attachment';
+                    img.style.width = '52px';
+                    img.style.height = '52px';
+                    img.style.objectFit = 'cover';
+                    img.style.borderRadius = 'var(--rounded-md)';
+                    img.style.border = '1px solid var(--color-hairline-strong)';
+                    tray.appendChild(img);
+                } else {
+                    const icon = a.category === 'zip' ? 'archive' :
+                                 (a.category === 'pdf' ? 'file-text' :
+                                 (a.category === 'presentation' ? 'presentation' :
+                                 (a.category === 'spreadsheet' ? 'table' :
+                                 (a.category === 'document' ? 'file-text' : 'file-code'))));
+                    const badge = document.createElement('div');
+                    badge.className = `msg-file-badge ${a.category || 'text'}`;
+
+                    const iconEl = document.createElement('i');
+                    iconEl.dataset.lucide = icon;
+                    iconEl.className = 'msg-file-icon';
+
+                    const nameSpan = document.createElement('span');
+                    nameSpan.className = 'msg-file-name';
+                    nameSpan.title = a.name || '';
+                    nameSpan.textContent = a.name || '';
+
+                    const sizeSpan = document.createElement('span');
+                    sizeSpan.className = 'msg-file-size';
+                    sizeSpan.textContent = a.sizeFormatted || '';
+
+                    badge.appendChild(iconEl);
+                    badge.appendChild(nameSpan);
+                    badge.appendChild(sizeSpan);
+                    tray.appendChild(badge);
                 }
-                const icon = a.category === 'zip' ? 'archive' : 
-                             (a.category === 'pdf' ? 'file-text' : 
-                             (a.category === 'presentation' ? 'presentation' : 
-                             (a.category === 'spreadsheet' ? 'table' : 
-                             (a.category === 'document' ? 'file-text' : 'file-code'))));
-                return `<div class="msg-file-badge ${a.category || 'text'}"><i data-lucide="${icon}" class="msg-file-icon"></i><span class="msg-file-name" title="${a.name}">${a.name}</span><span class="msg-file-size">${a.sizeFormatted || ''}</span></div>`;
-            }).join('');
+            });
             content.appendChild(tray);
         }
         wrapper.appendChild(content);
@@ -350,7 +379,7 @@ function finalizeStreamRender(content) {
         enhanceCodeBlocks(content);
         enhanceTables(content);
         enhanceImages(content);
-        appendAssistantActions(wrapper, content);
+        appendAssistantActions(wrapper, content, incomingTargetText);
         if (typeof lucide !== 'undefined') {
             lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });
         }

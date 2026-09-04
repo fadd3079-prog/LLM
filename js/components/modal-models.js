@@ -108,20 +108,26 @@ export function initModelSelector({ onModelChange }) {
         state.models = [...getCuratedForProvider(state.config.provider)];
     }
 
+    let catalogRequestSeq = 0;
     async function loadModelCatalog() {
-        const provider = state.config.provider || 'openrouter';
+        const providerAtRequest = state.config.provider || 'openrouter';
         const apiKey = state.config.apiKey || '';
         const customBaseUrl = state.config.baseUrl || '';
+        const mySeq = ++catalogRequestSeq;
 
         try {
-            const list = await fetchModels(provider, apiKey, customBaseUrl);
+            const list = await fetchModels(providerAtRequest, apiKey, customBaseUrl);
+            // Buang hasil kalau provider sudah pindah saat kita menunggu.
+            if (mySeq !== catalogRequestSeq) return;
+            if (state.config.provider !== providerAtRequest) return;
             if (Array.isArray(list) && list.length > 0) {
                 state.models = list;
                 renderModelDropdown(state.models);
                 syncInput();
             }
         } catch (e) {
-            console.warn(`Gagal memuat katalog lengkap untuk ${provider}:`, e);
+            if (mySeq !== catalogRequestSeq) return;
+            console.warn(`Gagal memuat katalog lengkap untuk ${providerAtRequest}:`, e);
         }
     }
 

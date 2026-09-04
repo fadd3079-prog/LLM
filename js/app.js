@@ -1,5 +1,5 @@
 import { state, initStore, getCurrentChat, addMessage, editMessageAndTruncate, createChat, deleteChat, togglePinChat, saveStore, setTheme } from './store/index.js';
-import { streamChat } from './api/provider.js';
+import { streamChat, PROVIDERS_CONFIG } from './api/provider.js';
 import { initSidebar, renderChats, updateHeaderModelDisplay } from './components/sidebar.js';
 import { initChatScroll, renderMessages, appendUserMessage, appendStreamingMessage, resumeStreamingMessage, updateStreamingMessage, finalizeStreamingMessage, setEditMessageCallback } from './components/chat.js';
 import { initInputUI, setChatInputValue } from './components/input.js';
@@ -11,7 +11,7 @@ import { formatMemoriesForSystemPrompt } from './services/memory.js';
 import { isImageGenerationRequest, extractImagePrompt, getGeneratedImageUrl } from './services/image-generator.js';
 import { applyLanguageToDOM } from './services/i18n.js';
 import { getAppKnowledgeSystemPrompt, processAssistantResponseForMemories } from './services/app-knowledge.js';
-import { detectAndParseApiConfig, isPureApiSetupMessage, applyApiConfig, generateConnectionSuccessCard } from './services/api-key-detector.js';
+import { detectAndParseApiConfig, isPureApiSetupMessage, applyApiConfig, generateConnectionSuccessCard, redactSecretsInText } from './services/api-key-detector.js';
 
 function startApp() {
     initStore();
@@ -23,6 +23,7 @@ function startApp() {
     }
 
     let activeAbortController = null;
+    let activeGenerationId = 0;
     let chatInputControls = null;
 
     const isMobileDevice = () => {
@@ -86,8 +87,8 @@ function startApp() {
     });
 
     chatInputControls = initInputUI(
-        (text, attachments, options) => {
-            handleSendMessage(text, attachments, options);
+        (text, attachments, options, meta) => {
+            handleSendMessage(text, attachments, options, meta);
         },
         () => {
             handleStopGeneration();
@@ -103,6 +104,7 @@ function startApp() {
     });
 
     function handleStopGeneration() {
+        activeGenerationId++;
         if (activeAbortController) {
             activeAbortController.abort();
             activeAbortController = null;
@@ -216,6 +218,8 @@ function startApp() {
     }
 
     async function executeStream(chat, assistantMsg, isContinuation = false, streamOptions = {}) {
+        const myGenerationId = ++activeGenerationId;
+        const isCurrent = () => myGenerationId === activeGenerationId;
         state.isGenerating = true;
         chatInputControls.setGenerating(true);
         chatInputControls.enableInput(false);
@@ -276,6 +280,7 @@ function startApp() {
                 state.config.apiKey,
                 state.selectedModel,
                 (chunkText) => {
+                    if (!isCurrent()) return;
                     const fullText = initialPrefix ? (initialPrefix + '\n\n' + chunkText) : chunkText;
                     throttledSave(fullText);
                     // Filter tag memori agar tidak mengganggu pratinjau teks saat streaming
@@ -283,6 +288,7 @@ function startApp() {
                     updateStreamingMessage(liveDisplay || fullText);
                 },
                 (finalText) => {
+                    if (!isCurrent()) return;
                     let fullText = initialPrefix ? (initialPrefix + '\n\n' + finalText) : finalText;
 
                     // Ekstraksi memori yang dipelajari secara otonom oleh AI
@@ -306,6 +312,7 @@ function startApp() {
                     chatInputControls.enableInput(true);
                 },
                 (error) => {
+                    if (!isCurrent()) return;
                     state.activeStream = null;
                     activeAbortController = null;
                     saveStore();
@@ -324,6 +331,7 @@ function startApp() {
                 }
             );
         } catch (err) {
+            if (!isCurrent()) return;
             state.activeStream = null;
             activeAbortController = null;
             saveStore();
@@ -335,7 +343,7 @@ function startApp() {
         }
     }
 
-    async function handleSendMessage(text, attachments, options = {}) {
+    async function handleSendMessage(text, attachments, options = {}, meta = {}) {
         if (state.isGenerating) return;
 
         const currentChat = getCurrentChat();
@@ -353,7 +361,7 @@ function startApp() {
             showToast(`Provider ${apiConfig.providerName} & API Key berhasil terhubung!`, 'success');
 
             if (isPureSetup) {
-                const userMsg = addMessage('user', text);
+                const userMsg = addMessage('user', redactSecretsInText(text));
                 if (userMsg) appendUserMessage(userMsg);
 
                 const cardContent = generateConnectionSuccessCard(apiConfig);
@@ -361,7 +369,7 @@ function startApp() {
                 saveStore();
 
                 renderChats({
-                    onSelectChat: (id) => { state.currentChatId = id; refreshUI(); },
+                    onSelectChat: (id) => { state.currentChatId = id; saveStore(); refreshUI(); },
                     onDeleteChat: (id) => { deleteChat(id); refreshUI(); },
                     onTogglePin: (id) => { togglePinChat(id); refreshUI(); }
                 });
@@ -378,7 +386,7 @@ function startApp() {
         // Deteksi apakah pengguna meminta pembuatan gambar AI
         if (isImageGenerationRequest(text) && (!attachments || attachments.length === 0)) {
             const imgPrompt = extractImagePrompt(text);
-            const userMsg = addMessage('user', text, attachments);
+            const userMsg = addMessage('user', redactSecretsInText(text), attachments);
             if (!userMsg) return;
 
             appendUserMessage(userMsg);
@@ -394,21 +402,29 @@ function startApp() {
             showToast('Gambar AI berhasil dibuat', 'success');
 
             renderChats({
-                onSelectChat: (id) => { state.currentChatId = id; refreshUI(); },
+                onSelectChat: (id) => { state.currentChatId = id; saveStore(); refreshUI(); },
                 onDeleteChat: (id) => { deleteChat(id); refreshUI(); },
                 onTogglePin: (id) => { togglePinChat(id); refreshUI(); }
             });
             return;
         }
 
-        if (!state.config.apiKey) {
+        if (!state.config.apiKey && !providerAllowsNoKey(state.config.provider)) {
             modal.open('api');
             showToast('Masukkan API Key terlebih dahulu di Settings', 'error');
             return;
         }
 
-        const userMsg = addMessage('user', text, attachments);
+        // Redact secret apapun yang tidak sengaja tertinggal di pesan
+        // (mis. user menulis "INI API_KEY SAYA = sk-xxx") sebelum disimpan
+        // maupun diteruskan ke LLM.
+        const safeText = redactSecretsInText(text);
+        const userMsg = addMessage('user', safeText, attachments);
         if (!userMsg) return;
+
+        // Lampiran sudah disalin ke dalam pesan (lihat addMessage: spread copy).
+        // Saatnya melepas state lampiran input agar tidak terduplikasi.
+        if (typeof meta.clearAttachments === 'function') meta.clearAttachments();
 
         appendUserMessage(userMsg);
 
@@ -420,12 +436,17 @@ function startApp() {
         saveStore();
 
         renderChats({
-            onSelectChat: (id) => { state.currentChatId = id; refreshUI(); },
+            onSelectChat: (id) => { state.currentChatId = id; saveStore(); refreshUI(); },
             onDeleteChat: (id) => { deleteChat(id); refreshUI(); },
             onTogglePin: (id) => { togglePinChat(id); refreshUI(); }
         });
 
         executeStream(currentChat, assistantMsg, false, options);
+    }
+
+    function providerAllowsNoKey(providerId) {
+        const cfg = PROVIDERS_CONFIG[providerId];
+        return Boolean(cfg && (cfg.isLocal || cfg.isCustom));
     }
 
     async function handleEditUserMessage(messageId, newText) {
@@ -455,14 +476,14 @@ function startApp() {
             showToast('Prompt diupdate, gambar AI digenerate...', 'success');
 
             renderChats({
-                onSelectChat: (id) => { state.currentChatId = id; refreshUI(); },
+                onSelectChat: (id) => { state.currentChatId = id; saveStore(); refreshUI(); },
                 onDeleteChat: (id) => { deleteChat(id); refreshUI(); },
                 onTogglePin: (id) => { togglePinChat(id); refreshUI(); }
             });
             return;
         }
 
-        if (!state.config.apiKey) {
+        if (!state.config.apiKey && !providerAllowsNoKey(state.config.provider)) {
             renderMessages(currentChat);
             modal.open('api');
             showToast('Masukkan API Key terlebih dahulu di Settings', 'error');
@@ -481,7 +502,7 @@ function startApp() {
         saveStore();
 
         renderChats({
-            onSelectChat: (id) => { state.currentChatId = id; refreshUI(); },
+            onSelectChat: (id) => { state.currentChatId = id; saveStore(); refreshUI(); },
             onDeleteChat: (id) => { deleteChat(id); refreshUI(); },
             onTogglePin: (id) => { togglePinChat(id); refreshUI(); }
         });
@@ -499,7 +520,7 @@ function startApp() {
         if (activeChat) {
             state.currentChatId = activeChat.id;
             const assistantMsg = activeChat.messages.find(m => m.id === state.activeStream.messageId);
-            if (assistantMsg && state.config.apiKey) {
+            if (assistantMsg && (state.config.apiKey || providerAllowsNoKey(state.config.provider))) {
                 showToast('Melanjutkan respon AI...', 'info');
                 setTimeout(() => {
                     executeStream(activeChat, assistantMsg, true);

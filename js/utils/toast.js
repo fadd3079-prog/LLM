@@ -17,7 +17,12 @@ export function showToast(message, type = 'info') {
         warning: 'alert-triangle'
     };
 
-    toast.innerHTML = `<i data-lucide="${icons[type] || 'info'}"></i><span>${message}</span>`;
+    const icon = document.createElement('i');
+    icon.dataset.lucide = icons[type] || 'info';
+    const span = document.createElement('span');
+    span.textContent = message;
+    toast.appendChild(icon);
+    toast.appendChild(span);
     container.appendChild(toast);
 
     if (typeof lucide !== 'undefined') {

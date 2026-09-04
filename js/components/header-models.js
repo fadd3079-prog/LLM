@@ -70,22 +70,54 @@ export function initHeaderModelSwitcher({ onModelChange, onOpenFullSettings }) {
             li.setAttribute('role', 'option');
             li.setAttribute('aria-selected', isActive ? 'true' : 'false');
 
-            const contextText = m.context_length ? `${Math.round(m.context_length / 1000)}k` : '';
+            const mainWrap = document.createElement('div');
+            mainWrap.className = 'header-model-item-main';
 
-            li.innerHTML = `
-                <div class="header-model-item-main">
-                    <div class="header-model-item-title-row">
-                        <span class="header-model-item-name">${m.name}</span>
-                        ${isFree ? '<span class="model-badge free">FREE</span>' : ''}
-                        ${!isFree && isCurated ? '<span class="model-badge recommended">TOP</span>' : ''}
-                    </div>
-                    <span class="header-model-item-id">${m.id}</span>
-                </div>
-                <div class="header-model-item-meta">
-                    ${contextText ? `<span class="model-meta-ctx">${contextText}</span>` : ''}
-                    ${isActive ? '<i data-lucide="check" class="header-model-item-check"></i>' : ''}
-                </div>
-            `;
+            const titleRow = document.createElement('div');
+            titleRow.className = 'header-model-item-title-row';
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'header-model-item-name';
+            nameSpan.textContent = m.name || m.id || '';
+
+            titleRow.appendChild(nameSpan);
+            if (isFree) {
+                const freeBadge = document.createElement('span');
+                freeBadge.className = 'model-badge free';
+                freeBadge.textContent = 'FREE';
+                titleRow.appendChild(freeBadge);
+            }
+            if (!isFree && isCurated) {
+                const topBadge = document.createElement('span');
+                topBadge.className = 'model-badge recommended';
+                topBadge.textContent = 'TOP';
+                titleRow.appendChild(topBadge);
+            }
+
+            const idSpan = document.createElement('span');
+            idSpan.className = 'header-model-item-id';
+            idSpan.textContent = m.id || '';
+
+            mainWrap.appendChild(titleRow);
+            mainWrap.appendChild(idSpan);
+
+            const metaWrap = document.createElement('div');
+            metaWrap.className = 'header-model-item-meta';
+            if (m.context_length) {
+                const ctxSpan = document.createElement('span');
+                ctxSpan.className = 'model-meta-ctx';
+                ctxSpan.textContent = `${Math.round(m.context_length / 1000)}k`;
+                metaWrap.appendChild(ctxSpan);
+            }
+            if (isActive) {
+                const checkIcon = document.createElement('i');
+                checkIcon.dataset.lucide = 'check';
+                checkIcon.className = 'header-model-item-check';
+                metaWrap.appendChild(checkIcon);
+            }
+
+            li.appendChild(mainWrap);
+            li.appendChild(metaWrap);
 
             li.addEventListener('click', (e) => {
                 e.stopPropagation();

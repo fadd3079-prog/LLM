@@ -25,7 +25,15 @@ Web client chat model-model LLM (OpenRouter & NVIDIA NIM)
    ```bash
    git clone https://github.com/fadd3079-prog/LLM.git
    ```
-2. run index.html
+2. Jalankan lewat HTTP server (modul ES tidak dapat dilayani via `file://`).
+   Contoh cepat:
+   ```bash
+   # dari folder hasil clone
+   npx serve .
+   # atau
+   python -m http.server 8080
+   ```
+   Lalu buka `http://localhost:8080` (atau port yang ditampilkan server).
 
 ## Tech Stack
 

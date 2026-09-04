@@ -324,7 +324,9 @@ async function extractPdf(file, sizeFormatted) {
 
         // Jika teks digital kosong atau sangat sedikit (scanned document atau slide presentasi gambar),
         // otomatis render halaman ke canvas gambar beresolusi tinggi agar model AI vision dapat membacanya langsung!
-        const isImageBasedPdf = totalTextChars < 120 || (pageCount > 1 && (totalTextChars / pageCount) < 25);
+        // Pembagi menggunakan maxPages, bukan pageCount, agar PDF panjang dengan teks digital
+        // tidak salah diklasifikasikan sebagai scanned.
+        const isImageBasedPdf = totalTextChars < 120 || (maxPages > 1 && (totalTextChars / maxPages) < 25);
         if (isImageBasedPdf) {
             const renderLimit = Math.min(pdf.numPages, 25);
             for (let i = 1; i <= renderLimit; i++) {
@@ -344,7 +346,8 @@ async function extractPdf(file, sizeFormatted) {
             }
 
             textContent = `[Materi Dokumen PDF: ${file.name} (${pageCount} Halaman)]\n` +
-                `Seluruh halaman dokumen ini telah dikonversi secara visual beresolusi tinggi dan dilampirkan sebagai gambar pada pesan ini. Baca dan analisis seluruh materi, teks, judul, diagram, dan isi slide secara visual.\n`;
+                `Hanya ${renderLimit} halaman pertama yang dapat dirender menjadi gambar beresolusi tinggi pada pesan ini karena keterbatasan teknis. ` +
+                `Baca dan analisis halaman-halaman yang dilampirkan secara visual.\n`;
             if (pagesWithText.length > 0) {
                 textContent += `\nEkstrak Teks Terdeteksi:\n` + pagesWithText.map(p => `--- Halaman ${p.pageNum} ---\n${p.text}`).join('\n\n');
             }
