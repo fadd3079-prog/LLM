@@ -917,13 +917,331 @@
     flex-shrink: 0;
 }
 
+/* ==========================================================================
+   TABLET (max-width: 1024px)
+   ========================================================================== */
+
+@media (max-width: 1024px) {
+    .message-wrapper.user .message-content {
+        max-width: 88%;
+    }
+
+    .suggestion-grid {
+        max-width: 560px;
+    }
+}
+
+/* ==========================================================================
+   MOBILE (max-width: 768px)
+   ========================================================================== */
+
 @media (max-width: 768px) {
     .suggestion-grid {
         grid-template-columns: 1fr;
+        max-width: 100%;
+        gap: var(--spacing-xs);
+    }
+
+    .suggestion-card {
+        padding: 12px 14px;
+    }
+
+    .suggestion-title {
+        font-size: 13px;
+    }
+
+    .suggestion-desc {
+        font-size: 11.5px;
     }
 
     .assistant-actions {
         opacity: 0.75;
+    }
+
+    .empty-state {
+        min-height: 40vh;
+        padding: var(--spacing-lg) var(--spacing-sm);
+    }
+
+    .hero-brand {
+        width: 44px;
+        height: 44px;
+    }
+
+    .hero-icon,
+    .hero-logo {
+        width: 24px;
+        height: 24px;
+    }
+
+    .hero-title {
+        font-size: var(--display-md-size);
+    }
+
+    .hero-subtitle {
+        font-size: var(--body-sm-size);
+        max-width: 320px;
+        margin-bottom: var(--spacing-lg);
+    }
+
+    .message-wrapper.user .message-content {
+        max-width: 92%;
+        padding: 10px 14px;
+        font-size: 14px;
+        border-radius: 16px 16px 4px 16px;
+    }
+
+    .message-wrapper.assistant .message-content {
+        font-size: 14px;
+    }
+
+    .message-content h1 {
+        font-size: 1.3em;
+    }
+
+    .message-content h2 {
+        font-size: 1.15em;
+    }
+
+    .message-content h3 {
+        font-size: 1.05em;
+    }
+
+    .messages-container {
+        gap: var(--spacing-lg);
+    }
+
+    .input-wrapper {
+        border-radius: 18px;
+        padding: 6px 8px 6px 6px;
+        min-height: 44px;
+        box-shadow: var(--shadow-level-2);
+    }
+
+    .chat-input,
+    #chat-input {
+        font-size: 14px;
+        padding: 5px 4px 4px 4px;
+        min-height: 24px;
+    }
+
+    .chat-input::placeholder,
+    #chat-input::placeholder {
+        font-size: 14px;
+    }
+
+    .attach-btn,
+    #btn-attach {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+    }
+
+    .attach-btn svg,
+    #btn-attach svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    .send-btn,
+    #btn-send {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+    }
+
+    .send-btn svg,
+    #btn-send svg {
+        width: 15px;
+        height: 15px;
+    }
+
+    .input-footer {
+        font-size: 10px;
+    }
+
+    .code-block-card pre {
+        padding: var(--spacing-sm) !important;
+        font-size: 12px !important;
+    }
+
+    .message-content pre code {
+        font-size: 12px;
+    }
+
+    .message-content code {
+        font-size: 0.85em;
+    }
+
+    .code-block-header {
+        height: 30px;
+        padding: 0 var(--spacing-xs);
+    }
+
+    .code-lang {
+        font-size: 10px;
+    }
+
+    .code-copy-btn {
+        height: 22px;
+        padding: 0 6px;
+        font-size: 10.5px;
+    }
+
+    .message-content th {
+        padding: 8px 10px;
+        font-size: 12px;
+    }
+
+    .message-content td {
+        padding: 7px 10px;
+        font-size: 13px;
+    }
+
+    .toast-container {
+        bottom: var(--spacing-sm);
+        right: var(--spacing-sm);
+        left: var(--spacing-sm);
+    }
+
+    .toast {
+        font-size: 12px;
+        padding: 8px var(--spacing-sm);
+    }
+
+    .image-preview-item {
+        width: 40px;
+        height: 40px;
+    }
+
+    .image-preview-item.is-file {
+        height: 40px;
+        max-width: 160px;
+        padding: 5px 24px 5px 8px;
+    }
+
+    .badge-name {
+        font-size: 11px;
+        max-width: 100px;
+    }
+
+    .badge-size {
+        font-size: 9.5px;
+    }
+
+    .copy-icon-btn {
+        width: 28px;
+        height: 28px;
+    }
+
+    .copy-icon-btn svg {
+        width: 13px;
+        height: 13px;
+    }
+
+    .chat-item-actions {
+        opacity: 0.7;
+    }
+
+    .scroll-bottom-btn {
+        width: 32px;
+        height: 32px;
+        top: -40px;
+    }
+}
+
+/* ==========================================================================
+   SMALL PHONE (max-width: 480px)
+   ========================================================================== */
+
+@media (max-width: 480px) {
+    .empty-state {
+        min-height: 35vh;
+        padding: var(--spacing-md) var(--spacing-xs);
+    }
+
+    .hero-brand {
+        width: 40px;
+        height: 40px;
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .hero-icon,
+    .hero-logo {
+        width: 22px;
+        height: 22px;
+    }
+
+    .hero-title {
+        font-size: var(--display-sm-size);
+    }
+
+    .hero-subtitle {
+        font-size: 12px;
+        max-width: 280px;
+        margin-bottom: var(--spacing-md);
+    }
+
+    .suggestion-card {
+        padding: 10px 12px;
+    }
+
+    .suggestion-title {
+        font-size: 12.5px;
+    }
+
+    .suggestion-desc {
+        font-size: 11px;
+    }
+
+    .message-wrapper.user .message-content {
+        max-width: 95%;
+        padding: 9px 12px;
+        font-size: 13.5px;
+        border-radius: 14px 14px 4px 14px;
+    }
+
+    .message-wrapper.assistant .message-content {
+        font-size: 13.5px;
+    }
+
+    .messages-container {
+        gap: var(--spacing-md);
+    }
+
+    .input-wrapper {
+        border-radius: 16px;
+        padding: 5px 6px 5px 5px;
+        min-height: 40px;
+    }
+
+    .chat-input,
+    #chat-input {
+        font-size: 13.5px;
+        padding: 4px 3px 3px 3px;
+    }
+
+    .chat-input::placeholder,
+    #chat-input::placeholder {
+        font-size: 13.5px;
+    }
+
+    .input-footer {
+        font-size: 9.5px;
+    }
+
+    .role-badge {
+        font-size: 10px;
+    }
+
+    .timestamp {
+        font-size: 10px;
+    }
+
+    .toast-container {
+        bottom: var(--spacing-xs);
+        right: var(--spacing-xs);
+        left: var(--spacing-xs);
     }
 }
 
