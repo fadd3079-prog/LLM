@@ -1,5 +1,6 @@
 import { state, saveStore, setTheme, setProvider, setProviderApiKey, setProviderBaseUrl } from '../store/index.js';
 import { showToast } from '../utils/toast.js';
+import { showConfirmDialog } from '../utils/confirm-dialog.js';
 import { initModelSelector } from './modal-models.js';
 import { getMemories, addMemory, deleteMemory, clearAllMemories } from '../services/memory.js';
 import { getSavedLanguageSetting, setLanguage, applyLanguageToDOM } from '../services/i18n.js';
@@ -200,8 +201,16 @@ export function initModal({ onModelChange, onClearAll }) {
         });
     }
     if (btnClearMemories) {
-        btnClearMemories.addEventListener('click', () => {
-            if (confirm('Hapus seluruh memori AI?')) {
+        btnClearMemories.addEventListener('click', async () => {
+            const confirmed = await showConfirmDialog({
+                title: 'Hapus Seluruh Memori?',
+                message: 'Semua ringkasan preferensi dan catatan yang dipelajari AI akan dihapus permanen.',
+                confirmText: 'Hapus Memori',
+                cancelText: 'Batal',
+                type: 'danger',
+                icon: 'trash-2'
+            });
+            if (confirmed) {
                 clearAllMemories();
                 renderMemoryUI();
                 showToast('Seluruh memori AI berhasil dihapus', 'info');
@@ -389,8 +398,16 @@ export function initModal({ onModelChange, onClearAll }) {
     });
 
     if (btnClearAll) {
-        btnClearAll.addEventListener('click', () => {
-            if (confirm('Hapus semua riwayat chat? Tindakan ini tidak bisa dibatalkan.')) {
+        btnClearAll.addEventListener('click', async () => {
+            const confirmed = await showConfirmDialog({
+                title: 'Hapus Semua Riwayat?',
+                message: 'Seluruh percakapan akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan.',
+                confirmText: 'Hapus Semua',
+                cancelText: 'Batal',
+                type: 'danger',
+                icon: 'alert-triangle'
+            });
+            if (confirmed) {
                 if (onClearAll) onClearAll();
                 modal.close();
                 showToast('Semua chat berhasil dihapus', 'success');

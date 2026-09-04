@@ -1342,6 +1342,9 @@ b, strong {
     transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
     max-width: 260px;
     user-select: none;
+    position: relative;
+    overflow: hidden;
+    animation: chipEnter 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .attachment-chip:hover {
@@ -1509,6 +1512,99 @@ b, strong {
     height: 13px;
     stroke-width: 2.2px;
 }
+
+/* ==========================================================================
+   Loading & Processing States for Attachment Chips
+   ========================================================================== */
+
+.attachment-chip.loading-chip {
+    background: linear-gradient(135deg, var(--color-surface) 0%, rgba(249, 115, 22, 0.04) 100%);
+    border-color: rgba(224, 90, 71, 0.35);
+    animation: chipEnter 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards, chipBorderPulse 1.8s infinite ease-in-out;
+}
+
+[data-theme="dark"] .attachment-chip.loading-chip {
+    background: linear-gradient(135deg, var(--color-surface) 0%, rgba(249, 115, 22, 0.06) 100%);
+    border-color: rgba(224, 90, 71, 0.4);
+}
+
+.attachment-icon-badge.loading {
+    background-color: rgba(224, 90, 71, 0.08);
+    color: var(--color-coral);
+    border: 1px solid rgba(224, 90, 71, 0.2);
+}
+
+[data-theme="dark"] .attachment-icon-badge.loading {
+    background-color: rgba(224, 90, 71, 0.16);
+    color: #F87171;
+    border-color: rgba(224, 90, 71, 0.3);
+}
+
+.loading-spinner-svg {
+    width: 18px;
+    height: 18px;
+    animation: spinSmooth 0.8s linear infinite;
+    transform-origin: center center;
+    display: block;
+}
+
+.loading-spinner-svg .spinner-track {
+    stroke: currentColor;
+    opacity: 0.2;
+}
+
+.loading-spinner-svg .spinner-head {
+    stroke: currentColor;
+    stroke-linecap: round;
+}
+
+.attachment-chip-meta.loading-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--color-coral);
+    font-weight: 500;
+}
+
+.loading-pulse-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--color-coral);
+    display: inline-block;
+    flex-shrink: 0;
+    animation: pulseDot 1s infinite ease-in-out;
+}
+
+.chip-progress-track {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2.5px;
+    background-color: rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+}
+
+[data-theme="dark"] .chip-progress-track {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+.chip-progress-bar {
+    width: 45%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, var(--color-coral), transparent);
+    animation: shimmerProgress 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.attach-btn.uploading,
+#btn-attach.uploading {
+    color: var(--color-coral);
+    animation: attachUploading 1.2s infinite ease-in-out;
+}
+
 
 .msg-file-badge {
     display: inline-flex;

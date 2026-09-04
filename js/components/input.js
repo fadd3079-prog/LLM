@@ -1,5 +1,5 @@
 import { getPendingAttachments, clearPendingAttachments, addPendingAttachment, removePendingAttachment } from '../store/index.js';
-import { validateFile, processFile } from '../utils/file-processor.js';
+import { validateFile, processFile, formatBytes, getFileCategory } from '../utils/file-processor.js';
 import { showToast } from '../utils/toast.js';
 
 export function initInputUI(onSendMessage, onStopGeneration) {
@@ -13,6 +13,7 @@ export function initInputUI(onSendMessage, onStopGeneration) {
 
     let isGeneratingState = false;
     let isWebSearchActive = false;
+    let processingFiles = [];
 
     const adjustHeight = () => {
         chatInput.style.height = 'auto';
@@ -24,28 +25,62 @@ export function initInputUI(onSendMessage, onStopGeneration) {
             btnSend.disabled = false;
             return;
         }
-        btnSend.disabled = chatInput.value.trim() === '' && getPendingAttachments().length === 0;
+        const hasText = chatInput.value.trim() !== '';
+        const hasAttachments = getPendingAttachments().length > 0;
+        const isProcessing = processingFiles.length > 0;
+        btnSend.disabled = isProcessing || (!hasText && !hasAttachments);
     };
 
     async function processFiles(files) {
         if (!files || files.length === 0) return;
 
+        const validItems = [];
         for (const file of files) {
             const validation = validateFile(file);
             if (!validation.valid) {
                 showToast(validation.error, 'error');
                 continue;
             }
+            const loadingItem = {
+                id: 'loading_' + Math.random().toString(36).substring(2, 9) + Date.now(),
+                name: file.name,
+                sizeFormatted: formatBytes(file.size),
+                category: getFileCategory(file),
+                cancelled: false
+            };
+            processingFiles.push(loadingItem);
+            validItems.push({ file, loadingItem });
+        }
+
+        if (processingFiles.length > 0) {
+            btnAttach.classList.add('uploading');
+            renderImagePreviews();
+            adjustHeight();
+            updateSendButtonState();
+        }
+
+        if (validItems.length === 0) return;
+
+        await Promise.all(validItems.map(async ({ file, loadingItem }) => {
             try {
                 const processed = await processFile(file);
-                addPendingAttachment(processed);
+                if (!loadingItem.cancelled) {
+                    addPendingAttachment(processed);
+                }
             } catch (err) {
-                showToast(`Gagal membaca ${file.name}: ${err.message}`, 'error');
+                if (!loadingItem.cancelled) {
+                    showToast(`Gagal membaca ${file.name}: ${err.message}`, 'error');
+                }
+            } finally {
+                processingFiles = processingFiles.filter(item => item.id !== loadingItem.id);
+                if (processingFiles.length === 0) {
+                    btnAttach.classList.remove('uploading');
+                }
+                renderImagePreviews();
+                adjustHeight();
+                updateSendButtonState();
             }
-        }
-        renderImagePreviews();
-        adjustHeight();
-        updateSendButtonState();
+        }));
     }
 
     chatInput.addEventListener('input', () => {
@@ -157,14 +192,18 @@ export function initInputUI(onSendMessage, onStopGeneration) {
         if (!imagePreviewTray) return;
 
         const attachments = getPendingAttachments();
-        if (attachments.length === 0) {
+        const totalCount = attachments.length + processingFiles.length;
+
+        if (totalCount === 0) {
             imagePreviewTray.classList.add('hidden');
             imagePreviewTray.innerHTML = '';
             return;
         }
 
         imagePreviewTray.classList.remove('hidden');
-        imagePreviewTray.innerHTML = attachments.map(item => {
+
+        // Render completed attachments
+        const attachmentsHtml = attachments.map(item => {
             if (item.category === 'image' || item.type?.startsWith('image/')) {
                 return `
                     <div class="attachment-chip image-chip" data-id="${item.id}" title="${item.name}">
@@ -218,11 +257,41 @@ export function initInputUI(onSendMessage, onStopGeneration) {
             `;
         }).join('');
 
+        // Render actively processing/uploading files with elegant lightweight animation
+        const loadingHtml = processingFiles.map(item => {
+            const cat = item.category || 'text';
+            return `
+                <div class="attachment-chip loading-chip ${cat}" data-id="${item.id}" title="Memproses ${item.name}...">
+                    <div class="attachment-icon-badge loading ${cat}">
+                        <svg class="loading-spinner-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <circle class="spinner-track" cx="12" cy="12" r="9" stroke-width="2.5"></circle>
+                            <circle class="spinner-head" cx="12" cy="12" r="9" stroke-width="2.5" stroke-dasharray="24 38" stroke-linecap="round"></circle>
+                        </svg>
+                    </div>
+                    <div class="attachment-chip-info">
+                        <span class="attachment-chip-name">${item.name}</span>
+                        <span class="attachment-chip-meta loading-meta">
+                            <span class="loading-pulse-dot"></span>
+                            <span class="loading-meta-text">Memproses ${item.sizeFormatted}...</span>
+                        </span>
+                    </div>
+                    <button class="attachment-chip-remove loading-cancel" data-id="${item.id}" type="button" aria-label="Batal ${item.name}" title="Batalkan unggahan">
+                        <i data-lucide="x"></i>
+                    </button>
+                    <div class="chip-progress-track">
+                        <div class="chip-progress-bar"></div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        imagePreviewTray.innerHTML = attachmentsHtml + loadingHtml;
+
         if (typeof lucide !== 'undefined') {
             lucide.createIcons({ attrs: { 'stroke-width': '1.8' } });
         }
 
-        imagePreviewTray.querySelectorAll('.attachment-chip-remove').forEach(btn => {
+        imagePreviewTray.querySelectorAll('.attachment-chip-remove:not(.loading-cancel)').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const id = btn.dataset.id;
@@ -232,9 +301,26 @@ export function initInputUI(onSendMessage, onStopGeneration) {
                 updateSendButtonState();
             });
         });
+
+        imagePreviewTray.querySelectorAll('.loading-cancel').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = btn.dataset.id;
+                const target = processingFiles.find(item => item.id === id);
+                if (target) target.cancelled = true;
+                processingFiles = processingFiles.filter(item => item.id !== id);
+                if (processingFiles.length === 0) {
+                    btnAttach.classList.remove('uploading');
+                }
+                renderImagePreviews();
+                adjustHeight();
+                updateSendButtonState();
+            });
+        });
     }
 
     function submitMessage() {
+        if (processingFiles.length > 0) return;
         const text = chatInput.value.trim();
         const attachments = getPendingAttachments();
         if (!text && attachments.length === 0) return;
@@ -285,11 +371,19 @@ export function initInputUI(onSendMessage, onStopGeneration) {
         clearInput: () => {
             chatInput.value = '';
             chatInput.style.height = 'auto';
+            processingFiles.forEach(item => { item.cancelled = true; });
+            processingFiles = [];
+            btnAttach.classList.remove('uploading');
             clearPendingAttachments();
             renderImagePreviews();
             btnSend.disabled = true;
         },
-        focus: () => chatInput.focus(),
+        focus: () => {
+            if (!chatInput || chatInput.disabled) return;
+            chatInput.focus();
+            const len = chatInput.value.length;
+            chatInput.setSelectionRange(len, len);
+        },
         isWebSearchActive: () => isWebSearchActive
     };
 }

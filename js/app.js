@@ -21,6 +21,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let activeAbortController = null;
+    let chatInputControls = null;
+
+    const isMobileDevice = () => {
+        if (window.innerWidth <= 768) return true;
+        if (window.matchMedia('(pointer: coarse) and not (pointer: fine)').matches) return true;
+        return false;
+    };
+
+    const focusChatInputIfDesktop = () => {
+        if (!isMobileDevice() && chatInputControls && typeof chatInputControls.focus === 'function') {
+            setTimeout(() => {
+                chatInputControls.focus();
+            }, 0);
+        }
+    };
 
     const modal = initModal({
         onModelChange: () => updateHeaderModelDisplay(),
@@ -28,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
             state.chats = [];
             createChat();
             refreshUI();
+            focusChatInputIfDesktop();
         }
     });
 
@@ -35,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
         onNewChat: () => {
             createChat();
             refreshUI();
+            focusChatInputIfDesktop();
         },
         onSelectChat: (id) => {
             state.currentChatId = id;
@@ -51,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    const chatInputControls = initInputUI(
+    chatInputControls = initInputUI(
         (text, attachments, options) => {
             handleSendMessage(text, attachments, options);
         },
@@ -384,6 +401,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     refreshUI();
+    focusChatInputIfDesktop();
 
     if (state.activeStream) {
         const activeChat = state.chats.find(c => c.id === state.activeStream.chatId);

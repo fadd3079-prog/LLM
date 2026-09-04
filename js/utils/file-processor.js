@@ -126,16 +126,16 @@ async function extractPptx(file, sizeFormatted) {
                 } catch (_) {}
             }
 
-            combinedSlidesText += `--- Slide ${s.num} ---\n`;
-            if (paragraphs.length > 0) {
-                combinedSlidesText += paragraphs.join('\n') + '\n';
-            } else {
-                combinedSlidesText += '(Slide ini berbasis visual atau grafis)\n';
+            if (paragraphs.length > 0 || notesText) {
+                combinedSlidesText += `--- Slide ${s.num} ---\n`;
+                if (paragraphs.length > 0) {
+                    combinedSlidesText += paragraphs.join('\n') + '\n';
+                }
+                if (notesText) {
+                    combinedSlidesText += `[Catatan Pembicara: ${notesText}]\n`;
+                }
+                combinedSlidesText += '\n';
             }
-            if (notesText) {
-                combinedSlidesText += `[Catatan Pembicara: ${notesText}]\n`;
-            }
-            combinedSlidesText += '\n';
         }
 
         // Jika teks sedikit atau slide berbentuk gambar/infografis, ekstrak gambar media dari zip
@@ -320,23 +320,17 @@ async function extractPdf(file, sizeFormatted) {
             }
         }
 
-        for (const p of pageTextMap) {
-            textContent += `--- Halaman ${p.pageNum} ---\n${p.text || '(Tidak ada teks digital)'}\n\n`;
-        }
+        const pagesWithText = pageTextMap.filter(p => p.text && p.text.length > 5);
 
-        if (pdf.numPages > 30) {
-            textContent += `[Catatan: Dokumen memiliki ${pdf.numPages} halaman, 30 halaman pertama diekstrak]\n`;
-        }
-
-        // PENTING: Jika teks digital kosong atau sangat sedikit (scanned document atau slide presentasi gambar),
+        // Jika teks digital kosong atau sangat sedikit (scanned document atau slide presentasi gambar),
         // otomatis render halaman ke canvas gambar beresolusi tinggi agar model AI vision dapat membacanya langsung!
         const isImageBasedPdf = totalTextChars < 120 || (pageCount > 1 && (totalTextChars / pageCount) < 25);
         if (isImageBasedPdf) {
-            const renderLimit = Math.min(pdf.numPages, 12);
+            const renderLimit = Math.min(pdf.numPages, 25);
             for (let i = 1; i <= renderLimit; i++) {
                 try {
                     const page = await pdf.getPage(i);
-                    const viewport = page.getViewport({ scale: 1.5 });
+                    const viewport = page.getViewport({ scale: 1.6 });
                     const canvas = document.createElement('canvas');
                     canvas.width = viewport.width;
                     canvas.height = viewport.height;
@@ -349,10 +343,15 @@ async function extractPdf(file, sizeFormatted) {
                 }
             }
 
-            if (pageImages.length > 0) {
-                textContent = `[Dokumen PDF Visual/Slide: ${file.name} (${pageCount} halaman)]\n` +
-                    `Dokumen ini berisi materi berbasis visual/slide yang telah otomatis dikonversi ke gambar resolusi tinggi agar AI dapat membaca dan menganalisis setiap detailnya secara langsung.\n\n` +
-                    textContent;
+            textContent = `[Materi Dokumen PDF: ${file.name} (${pageCount} Halaman)]\n` +
+                `Seluruh halaman dokumen ini telah dikonversi secara visual beresolusi tinggi dan dilampirkan sebagai gambar pada pesan ini. Baca dan analisis seluruh materi, teks, judul, diagram, dan isi slide secara visual.\n`;
+            if (pagesWithText.length > 0) {
+                textContent += `\nEkstrak Teks Terdeteksi:\n` + pagesWithText.map(p => `--- Halaman ${p.pageNum} ---\n${p.text}`).join('\n\n');
+            }
+        } else {
+            textContent = pagesWithText.map(p => `--- Halaman ${p.pageNum} ---\n${p.text}`).join('\n\n');
+            if (pdf.numPages > 30) {
+                textContent += `\n\n[Catatan: Dokumen memiliki ${pdf.numPages} halaman, 30 halaman pertama diekstrak]\n`;
             }
         }
     } catch (e) {

@@ -1,4 +1,5 @@
 import { state } from '../store/index.js';
+import { showConfirmDialog } from '../utils/confirm-dialog.js';
 
 export function initSidebar({ onSelectChat, onNewChat, onDeleteChat, onTogglePin }) {
     const sidebar = document.getElementById('sidebar');
@@ -100,9 +101,17 @@ function createChatItem(chat, { onSelectChat, onDeleteChat, onTogglePin }) {
     deleteBtn.className = 'chat-item-btn delete-btn';
     deleteBtn.title = 'Hapus';
     deleteBtn.innerHTML = '<i data-lucide="trash-2"></i>';
-    deleteBtn.addEventListener('click', (e) => {
+    deleteBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        if (confirm('Hapus chat ini?')) {
+        const confirmed = await showConfirmDialog({
+            title: 'Hapus Chat?',
+            message: chat.title ? `Hapus "${chat.title}" dari riwayat?` : 'Chat ini akan dihapus permanen dari riwayat.',
+            confirmText: 'Hapus',
+            cancelText: 'Batal',
+            type: 'danger',
+            icon: 'trash-2'
+        });
+        if (confirmed) {
             onDeleteChat(chat.id);
         }
     });
