@@ -10,9 +10,13 @@ export function parseSSEChunk(chunk, onDelta, onDone) {
         if (trimmed.startsWith('data: ')) {
             try {
                 const parsed = JSON.parse(trimmed.slice(6));
-                const content = parsed.choices?.[0]?.delta?.content;
-                if (content && onDelta) {
-                    onDelta(content);
+                const delta = parsed.choices?.[0]?.delta || {};
+                const content = delta.content || '';
+                const reasoning = delta.reasoning || delta.thought || '';
+                const citations = parsed.citations || delta.citations || null;
+
+                if ((content || reasoning || citations) && onDelta) {
+                    onDelta(content, { reasoning, citations });
                 }
             } catch (e) {
                 // Ignore incomplete line splits

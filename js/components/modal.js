@@ -2,6 +2,7 @@ import { state, saveStore, setTheme } from '../store/index.js';
 import { showToast } from '../utils/toast.js';
 import { initModelSelector } from './modal-models.js';
 import { getMemories, addMemory, deleteMemory, clearAllMemories } from '../services/memory.js';
+import { getSavedLanguageSetting, setLanguage, applyLanguageToDOM } from '../services/i18n.js';
 
 export function initModal({ onModelChange, onClearAll }) {
     const modal = document.getElementById('settings-modal');
@@ -57,6 +58,13 @@ export function initModal({ onModelChange, onClearAll }) {
 
         themeOptions.forEach(opt => {
             const isActive = opt.dataset.theme === state.config.theme;
+            opt.classList.toggle('active', isActive);
+            opt.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+
+        const langSetting = getSavedLanguageSetting();
+        document.querySelectorAll('.lang-option').forEach(opt => {
+            const isActive = opt.dataset.lang === langSetting;
             opt.classList.toggle('active', isActive);
             opt.setAttribute('aria-pressed', isActive ? 'true' : 'false');
         });
@@ -269,6 +277,15 @@ export function initModal({ onModelChange, onClearAll }) {
             const theme = opt.dataset.theme;
             setTheme(theme);
             syncFormFromState();
+        });
+    });
+
+    document.querySelectorAll('.lang-option').forEach(opt => {
+        opt.addEventListener('click', () => {
+            const lang = opt.dataset.lang;
+            setLanguage(lang);
+            syncFormFromState();
+            showToast(lang === 'en' ? 'Language set to English' : (lang === 'id' ? 'Bahasa diatur ke Bahasa Indonesia' : 'Bahasa otomatis sesuai perangkat'), 'info');
         });
     });
 

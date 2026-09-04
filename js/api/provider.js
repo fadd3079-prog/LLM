@@ -99,7 +99,37 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
         const reader = response.body.getReader();
         const decoder = new TextDecoder('utf-8');
         let fullText = '';
+        let accumulatedReasoning = '';
+        let collectedCitations = [];
         let done = false;
+
+        function buildComposedOutput() {
+            let composed = '';
+            if (accumulatedReasoning) {
+                composed += `<details class="thought-box" open><summary class="thought-summary"><i data-lucide="brain"></i> <span>Proses Penalaran</span></summary><div class="thought-body">\n\n${accumulatedReasoning}\n\n</div></details>\n\n`;
+            }
+
+            let mainContent = fullText;
+            // Tangani tag <think> jika model (seperti DeepSeek) mengeluarkannya di konten teks biasa
+            if (mainContent.includes('<think>')) {
+                mainContent = mainContent.replace(/<think>([\s\S]*?)(?:<\/think>|$)/g, (match, p1) => {
+                    return `<details class="thought-box" open><summary class="thought-summary"><i data-lucide="brain"></i> <span>Proses Penalaran</span></summary><div class="thought-body">\n\n${p1.trim()}\n\n</div></details>\n\n`;
+                });
+            }
+
+            composed += mainContent;
+
+            if (collectedCitations.length > 0) {
+                const citeList = collectedCitations.map(url => {
+                    let domain = url;
+                    try { domain = new URL(url).hostname.replace(/^www\./, ''); } catch(e) {}
+                    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="source-tag"><i data-lucide="external-link"></i> ${domain}</a>`;
+                }).join('');
+                composed += `\n\n<div class="sources-tray"><div class="sources-title"><i data-lucide="globe"></i> Sumber Riset:</div><div class="sources-list">${citeList}</div></div>`;
+            }
+
+            return composed;
+        }
 
         while (!done) {
             // Cek jika sinyal abort terpicu selama pembacaan stream
@@ -113,9 +143,19 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
                 const chunk = decoder.decode(value, { stream: true });
                 parseSSEChunk(
                     chunk,
-                    (delta) => {
-                        fullText += delta;
-                        if (onChunk) onChunk(fullText);
+                    (deltaContent, meta = {}) => {
+                        if (meta.reasoning) {
+                            accumulatedReasoning += meta.reasoning;
+                        }
+                        if (meta.citations && Array.isArray(meta.citations)) {
+                            collectedCitations = [...new Set([...collectedCitations, ...meta.citations])];
+                        }
+                        if (deltaContent) {
+                            fullText += deltaContent;
+                        }
+
+                        const composed = buildComposedOutput();
+                        if (onChunk) onChunk(composed);
                     },
                     () => {
                         done = true;
@@ -124,11 +164,13 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
             }
         }
 
-        if (onComplete) onComplete(fullText);
+        const finalOutput = buildComposedOutput();
+        if (onComplete) onComplete(finalOutput);
     } catch (err) {
         if (err.name === 'AbortError' || options.signal?.aborted) {
             // Penghentian sengaja oleh pengguna
-            if (onComplete) onComplete(fullText || '');
+            const finalOutput = buildComposedOutput ? buildComposedOutput() : (fullText || '');
+            if (onComplete) onComplete(finalOutput);
         } else {
             if (onError) onError(err.message || 'Terjadi kesalahan saat memproses permintaan.');
         }

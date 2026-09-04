@@ -183,7 +183,7 @@ function createMessageElement(msg) {
     return wrapper;
 }
 
-function setupStreamingWrapper(initialText = '', isResume = false) {
+function setupStreamingWrapper(initialText = '', isResume = false, streamMode = 'default') {
     incomingTargetText = initialText;
     consumedLength = initialText.length;
     lastRenderTimestamp = 0;
@@ -214,26 +214,57 @@ function setupStreamingWrapper(initialText = '', isResume = false) {
     if (!content) {
         const wrapper = document.createElement('div');
         wrapper.className = 'message-wrapper assistant streaming';
+
+        let placeholderHtml = '<div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+        if (!initialText) {
+            if (streamMode === 'web') {
+                placeholderHtml = `
+                    <div class="stream-status-pill web-searching">
+                        <i data-lucide="globe" class="pulse-status-icon"></i>
+                        <span>Menjelajahi internet & meriset sumber informasi terkini...</span>
+                    </div>
+                `;
+            } else if (streamMode === 'thinking') {
+                placeholderHtml = `
+                    <div class="stream-status-pill ai-thinking">
+                        <i data-lucide="brain" class="pulse-status-icon"></i>
+                        <span>Menganalisis & menyusun proses penalaran logis...</span>
+                    </div>
+                `;
+            } else {
+                placeholderHtml = `
+                    <div class="stream-status-pill ai-processing">
+                        <i data-lucide="sparkles" class="pulse-status-icon"></i>
+                        <span>Menyiapkan jawaban...</span>
+                    </div>
+                `;
+            }
+        }
+
         wrapper.innerHTML = `
             <div class="message-header">
                 <span class="role-badge">Assistant</span>
                 <span class="timestamp">${formatTime(new Date())}</span>
             </div>
-            <div class="message-content" id="current-stream">${initialText ? parseMarkdown(initialText) : '<div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>'}</div>
+            <div class="message-content" id="current-stream">${initialText ? parseMarkdown(initialText) : placeholderHtml}</div>
         `;
         container?.appendChild(wrapper);
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });
+        }
     }
 
     scrollChatToBottom(false);
     streamAnimationId = requestAnimationFrame(streamRenderLoop);
 }
 
-export function appendStreamingMessage(initialText = '') {
-    setupStreamingWrapper(initialText, false);
+export function appendStreamingMessage(initialText = '', streamMode = 'default') {
+    setupStreamingWrapper(initialText, false, streamMode);
 }
 
 export function resumeStreamingMessage(initialText = '') {
-    setupStreamingWrapper(initialText, true);
+    setupStreamingWrapper(initialText, true, 'default');
 }
 
 export function updateStreamingMessage(text) {

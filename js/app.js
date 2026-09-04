@@ -1,4 +1,4 @@
-import { state, initStore, getCurrentChat, addMessage, createChat, deleteChat, togglePinChat, saveStore } from './store/index.js';
+import { state, initStore, getCurrentChat, addMessage, createChat, deleteChat, togglePinChat, saveStore, setTheme } from './store/index.js';
 import { streamChat } from './api/provider.js';
 import { initSidebar, renderChats, updateHeaderModelDisplay } from './components/sidebar.js';
 import { initChatScroll, renderMessages, appendUserMessage, appendStreamingMessage, resumeStreamingMessage, updateStreamingMessage, finalizeStreamingMessage } from './components/chat.js';
@@ -8,10 +8,12 @@ import { initSelectionToolbar } from './components/selection-toolbar.js';
 import { showToast } from './utils/toast.js';
 import { formatMemoriesForSystemPrompt } from './services/memory.js';
 import { isImageGenerationRequest, extractImagePrompt, getGeneratedImageUrl } from './services/image-generator.js';
+import { applyLanguageToDOM } from './services/i18n.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     initStore();
     initChatScroll();
+    applyLanguageToDOM();
 
     if (typeof lucide !== 'undefined') {
         lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });
@@ -86,6 +88,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-open-settings')?.addEventListener('click', () => modal.open('umum'));
     document.getElementById('btn-open-settings-prompt')?.addEventListener('click', () => modal.open('api'));
 
+    document.getElementById('btn-quick-theme')?.addEventListener('click', () => {
+        const nextTheme = state.config.theme === 'dark' ? 'light' : 'dark';
+        setTheme(nextTheme);
+        showToast(nextTheme === 'dark' ? 'Mode Gelap aktif' : 'Mode Terang aktif', 'info');
+    });
+
     document.querySelectorAll('.suggestion-card').forEach(card => {
         card.addEventListener('click', () => {
             const prompt = card.dataset.prompt;
@@ -129,7 +137,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isContinuation) {
                 resumeStreamingMessage(initialPrefix);
             } else {
-                appendStreamingMessage();
+                let streamMode = 'default';
+                if (streamOptions.webSearch) {
+                    streamMode = 'web';
+                } else if (state.selectedModel?.includes('thinking') || state.selectedModel?.includes('r1')) {
+                    streamMode = 'thinking';
+                }
+                appendStreamingMessage('', streamMode);
             }
 
             const messagesForApi = [];

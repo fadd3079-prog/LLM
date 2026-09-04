@@ -43,7 +43,7 @@
             <div class="sidebar-action-area">
                 <button id="btn-new-chat" class="nav-button primary-action" aria-label="Mulai chat">
                     <i data-lucide="plus"></i>
-                    <span>New Chat</span>
+                    <span data-i18n="new_chat">New Chat</span>
                 </button>
             </div>
 
@@ -72,7 +72,7 @@
                         <span class="user-name">Pengguna API</span>
                         <span class="user-status" id="api-status">Belum Terhubung</span>
                     </div>
-                    <button id="btn-settings" class="icon-button" aria-label="Buka Pengaturan" title="Pengaturan">
+                    <button id="btn-settings" class="icon-button" aria-label="Buka Pengaturan" title="Pengaturan" data-i18n-title="settings">
                         <i data-lucide="settings"></i>
                     </button>
                 </div>
@@ -88,6 +88,11 @@
                         <i data-lucide="menu"></i>
                     </button>
                     <div class="header-model-info" id="active-model-display" aria-live="polite"></div>
+                </div>
+                <div class="header-right">
+                    <button id="btn-quick-theme" class="icon-button theme-quick-btn" aria-label="Ganti Tema" title="Ganti Tema" data-i18n-title="theme">
+                        <i data-lucide="sun-moon"></i>
+                    </button>
                 </div>
             </header>
 
@@ -151,17 +156,17 @@
                         aria-label="Pratinjau lampiran gambar"></div>
                     <div class="input-wrapper">
                         <button id="btn-attach" class="icon-button attach-btn" aria-label="Lampirkan Berkas"
-                            title="Lampirkan Berkas (Gambar, PDF, ZIP, Dokumen, Kode)">
+                            title="Lampirkan Berkas (Gambar, PDF, ZIP, Dokumen, Kode)" data-i18n-title="attach">
                             <i data-lucide="paperclip"></i>
                         </button>
                         <button id="btn-web-search" class="icon-button web-search-btn" aria-label="Riset Web Terkini"
-                            title="Riset Web Terkini (Cari informasi terbaru di internet)" aria-pressed="false">
+                            title="Riset Web Terkini (Cari informasi terbaru di internet)" data-i18n-title="web_search_active" aria-pressed="false">
                             <i data-lucide="globe"></i>
                         </button>
                         <input type="file" id="file-input" class="hidden" accept="*" multiple>
-                        <textarea id="chat-input" class="chat-input" placeholder="Ketik perintah..." rows="1"
-                            aria-label="Input pesan"></textarea>
-                        <button id="btn-send" class="icon-button send-btn" aria-label="Kirim Pesan" title="Kirim Pesan"
+                        <textarea id="chat-input" class="chat-input" placeholder="Tanyakan apa saja, riset topik, atau buat file..." rows="1"
+                            aria-label="Input pesan" data-i18n-placeholder="placeholder_input"></textarea>
+                        <button id="btn-send" class="icon-button send-btn" aria-label="Kirim Pesan" title="Kirim Pesan" data-i18n-title="send"
                             disabled>
                             <i data-lucide="arrow-up"></i>
                         </button>
@@ -175,7 +180,7 @@
         <div class="modal-content">
             <header class="modal-header">
                 <div class="modal-header-titles">
-                    <h2 id="settings-modal-title" class="modal-title">Pengaturan</h2>
+                    <h2 id="settings-modal-title" class="modal-title" data-i18n="settings">Pengaturan</h2>
                 </div>
                 <button id="btn-close-modal" class="icon-button" aria-label="Tutup Pengaturan" title="Tutup">
                     <i data-lucide="x"></i>
@@ -187,22 +192,22 @@
                     <button role="tab" id="tab-general" class="nav-tab tab-button active" data-tab="general"
                         aria-selected="true" aria-controls="panel-general">
                         <i data-lucide="sliders-horizontal"></i>
-                        <span>Umum</span>
+                        <span data-i18n="general">Umum</span>
                     </button>
                     <button role="tab" id="tab-appearance" class="nav-tab tab-button" data-tab="appearance"
                         aria-selected="false" aria-controls="panel-appearance">
                         <i data-lucide="palette"></i>
-                        <span>Tema</span>
+                        <span data-i18n="theme">Tema</span>
                     </button>
                     <button role="tab" id="tab-api" class="nav-tab tab-button" data-tab="api" aria-selected="false"
                         aria-controls="panel-api">
                         <i data-lucide="key"></i>
-                        <span>API & Model</span>
+                        <span data-i18n="api_model">API & Model</span>
                     </button>
                     <button role="tab" id="tab-memory" class="nav-tab tab-button" data-tab="memory" aria-selected="false"
                         aria-controls="panel-memory">
                         <i data-lucide="brain"></i>
-                        <span>Memori AI</span>
+                        <span data-i18n="memory">Memori AI</span>
                     </button>
                 </nav>
 
@@ -212,7 +217,7 @@
                         <div class="settings-card">
                             <div class="section-title">
                                 <div class="title-with-status">
-                                    <h3>Personalisasi</h3>
+                                    <h3 data-i18n="personalization">Personalisasi</h3>
                                     <span class="status-badge-mini" id="system-prompt-status">
                                         <i data-lucide="check" style="width:12px;height:12px;"></i> Tersimpan
                                     </span>
@@ -226,7 +231,7 @@
 
                         <div class="settings-card">
                             <div class="section-title">
-                                <h3>Parameter Generasi</h3>
+                                <h3 data-i18n="generation_params">Parameter Generasi</h3>
                             </div>
                             <div class="input-group">
                                 <div class="label-with-value">
@@ -254,12 +259,11 @@
 
                         <div class="settings-card danger-card">
                             <div class="section-title">
-                                <h3>Data Percakapan</h3>
-                                <p>Hapus seluruh riwayat chat yang tersimpan secara lokal di browser Anda.</p>
+                                <h3 data-i18n="conversation_data">Data Percakapan</h3>
                             </div>
                             <button id="btn-clear-all" class="button-danger" type="button">
                                 <i data-lucide="trash-2"></i>
-                                <span>Hapus Semua Percakapan</span>
+                                <span data-i18n="clear_all">Hapus Semua Percakapan</span>
                             </button>
                         </div>
                     </div>
@@ -267,62 +271,38 @@
                     <div role="tabpanel" id="panel-appearance" class="tab-panel" aria-labelledby="tab-appearance">
                         <div class="settings-card">
                             <div class="section-title">
-                                <h3>Pilih Tema</h3>
+                                <h3 data-i18n="theme">Tema Tampilan</h3>
                             </div>
-                            <div class="theme-options">
-                                <button id="theme-light" class="theme-option" data-theme="light" type="button"
-                                    aria-pressed="false">
-                                    <div class="theme-preview light">
-                                        <div class="mini-ui">
-                                            <div class="mini-sidebar"></div>
-                                            <div class="mini-main">
-                                                <div class="mini-bubble"></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="theme-info">
-                                        <div class="theme-name-row">
-                                            <i data-lucide="sun"></i>
-                                            <span class="theme-name">Light</span>
-                                        </div>
-                                        <span class="theme-desc">Gallery Off-White</span>
-                                    </div>
+                            <div class="segmented-control theme-segmented">
+                                <button class="theme-option segmented-btn" data-theme="light" type="button" aria-pressed="false">
+                                    <i data-lucide="sun"></i>
+                                    <span>Light</span>
                                 </button>
-                                <button id="theme-dark" class="theme-option" data-theme="dark" type="button"
-                                    aria-pressed="false">
-                                    <div class="theme-preview dark">
-                                        <div class="mini-ui">
-                                            <div class="mini-sidebar"></div>
-                                            <div class="mini-main">
-                                                <div class="mini-bubble"></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="theme-info">
-                                        <div class="theme-name-row">
-                                            <i data-lucide="moon"></i>
-                                            <span class="theme-name">Dark</span>
-                                        </div>
-                                        <span class="theme-desc">OLED Obsidian</span>
-                                    </div>
+                                <button class="theme-option segmented-btn" data-theme="dark" type="button" aria-pressed="false">
+                                    <i data-lucide="moon"></i>
+                                    <span>Dark</span>
                                 </button>
-                                <button id="theme-system" class="theme-option" data-theme="system" type="button"
-                                    aria-pressed="false">
-                                    <div class="theme-preview system">
-                                        <div class="mini-ui">
-                                            <div class="mini-sidebar"></div>
-                                            <div class="mini-main">
-                                                <div class="mini-bubble"></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="theme-info">
-                                        <div class="theme-name-row">
-                                            <i data-lucide="monitor"></i>
-                                            <span class="theme-name">System</span>
-                                        </div>
-                                        <span class="theme-desc">Ikuti Tema OS</span>
-                                    </div>
+                                <button class="theme-option segmented-btn" data-theme="system" type="button" aria-pressed="false">
+                                    <i data-lucide="laptop"></i>
+                                    <span>System</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="settings-card">
+                            <div class="section-title">
+                                <h3 data-i18n="language">Bahasa Antarmuka</h3>
+                            </div>
+                            <div class="segmented-control lang-segmented">
+                                <button class="lang-option segmented-btn" data-lang="auto" type="button">
+                                    <i data-lucide="globe"></i>
+                                    <span>Auto</span>
+                                </button>
+                                <button class="lang-option segmented-btn" data-lang="id" type="button">
+                                    <span>Indonesia</span>
+                                </button>
+                                <button class="lang-option segmented-btn" data-lang="en" type="button">
+                                    <span>English</span>
                                 </button>
                             </div>
                         </div>
@@ -393,7 +373,6 @@
                                     <h3>Memori Lintas Percakapan</h3>
                                     <span class="status-badge-mini" id="memory-count-badge">0 Catatan</span>
                                 </div>
-                                <p class="section-desc">AI mengingat preferensi, peran, dan konteks ini di semua sesi percakapan Anda.</p>
                             </div>
                             <div class="input-group memory-input-row">
                                 <input type="text" id="input-new-memory" class="modal-input" placeholder="Tambah memori baru (misal: 'Saya software engineer', 'Selalu buatkan file .md')..." />
