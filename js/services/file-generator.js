@@ -108,3 +108,166 @@ ${rawContent}
 
     downloadTextAsFile(filename, rawContent, mime);
 }
+
+/**
+ * Ekspor seluruh pesan respon asisten langsung sebagai dokumen PDF profesional
+ * tanpa mengharuskan pengguna menginstal Python / library eksternal di komputer mereka.
+ */
+export async function exportMessageAsPDF(contentElement, titlePrefix = 'Laporan_AI') {
+    if (!contentElement) return;
+
+    const timestamp = new Date().toISOString().slice(0, 10);
+    // Cari judul dokumen dari H1 atau H2 pertama di dalam pesan jika ada
+    const firstHeading = contentElement.querySelector('h1, h2');
+    let docTitle = titlePrefix;
+    if (firstHeading && firstHeading.textContent) {
+        const sanitized = firstHeading.textContent.trim().replace(/[^\w\s-]/g, '').replace(/\s+/g, '_').slice(0, 45);
+        if (sanitized) docTitle = sanitized;
+    }
+    const filename = `${docTitle}_${timestamp}.pdf`;
+
+    // Clone element untuk rendering terisolasi
+    const clone = contentElement.cloneNode(true);
+    // Hapus tombol-tombol dan kontrol interaktif yang tidak perlu dicetak
+    clone.querySelectorAll('.code-block-header, .assistant-actions, .user-actions, .sources-tray, .thought-box').forEach(el => el.remove());
+
+    // Buat container cetak profesional
+    const printContainer = document.createElement('div');
+    printContainer.className = 'pdf-export-container';
+    printContainer.style.cssText = `
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        color: #0f172a;
+        background: #ffffff;
+        padding: 24px 32px;
+        line-height: 1.7;
+        font-size: 11pt;
+        max-width: 820px;
+        margin: 0 auto;
+    `;
+
+    // Header kop dokumen profesional
+    const docHeader = document.createElement('div');
+    docHeader.style.cssText = `
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 12px;
+        margin-bottom: 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    `;
+    docHeader.innerHTML = `
+        <span style="font-weight: 700; font-size: 13pt; color: #1e293b; letter-spacing: -0.01em;">AI Workspace • Laporan Riset & Dokumen Eksekutif</span>
+        <span style="font-size: 9pt; color: #64748b;">${new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+    `;
+
+    // Footer dokumen
+    const docFooter = document.createElement('div');
+    docFooter.style.cssText = `
+        border-top: 1px solid #e2e8f0;
+        padding-top: 12px;
+        margin-top: 36px;
+        font-size: 8.5pt;
+        color: #94a3b8;
+        display: flex;
+        justify-content: space-between;
+    `;
+    docFooter.innerHTML = `
+        <span>Dihasilkan secara instan oleh AI Workspace</span>
+        <span>Dokumen Resmi AI</span>
+    `;
+
+    printContainer.appendChild(docHeader);
+    printContainer.appendChild(clone);
+    printContainer.appendChild(docFooter);
+
+    // Styling tabel dalam clone agar cetakan PDF rapi
+    clone.querySelectorAll('table').forEach(table => {
+        table.style.cssText = 'width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 9.5pt;';
+        table.querySelectorAll('th, td').forEach(cell => {
+            cell.style.cssText = 'border: 1px solid #cbd5e1; padding: 7px 10px; text-align: left; vertical-align: top;';
+        });
+        table.querySelectorAll('th').forEach(th => {
+            th.style.backgroundColor = '#f8fafc';
+            th.style.fontWeight = '600';
+            th.style.color = '#0f172a';
+        });
+    });
+
+    clone.querySelectorAll('h1').forEach(h => {
+        h.style.cssText = 'font-size: 18pt; font-weight: 700; color: #0f172a; margin-top: 24px; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; page-break-after: avoid;';
+    });
+
+    clone.querySelectorAll('h2').forEach(h => {
+        h.style.cssText = 'font-size: 14pt; font-weight: 600; color: #1e293b; margin-top: 20px; margin-bottom: 10px; page-break-after: avoid;';
+    });
+
+    clone.querySelectorAll('h3').forEach(h => {
+        h.style.cssText = 'font-size: 12pt; font-weight: 600; color: #334155; margin-top: 16px; margin-bottom: 8px; page-break-after: avoid;';
+    });
+
+    clone.querySelectorAll('pre').forEach(pre => {
+        pre.style.cssText = 'background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 6px; font-size: 9pt; font-family: monospace; white-space: pre-wrap; word-break: break-word; margin: 12px 0;';
+    });
+
+    clone.querySelectorAll('blockquote').forEach(bq => {
+        bq.style.cssText = 'border-left: 3px solid #3b82f6; background: #f8fafc; padding: 10px 14px; margin: 14px 0; color: #334155; border-radius: 0 6px 6px 0;';
+    });
+
+    // Coba ekspor menggunakan html2pdf jika tersedia
+    if (typeof window.html2pdf !== 'undefined') {
+        const opt = {
+            margin: [10, 10, 10, 10],
+            filename: filename,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, letterRendering: true, logging: false },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+        };
+
+        try {
+            await window.html2pdf().set(opt).from(printContainer).save();
+            return filename;
+        } catch (err) {
+            console.warn('html2pdf gagal, beralih ke print window:', err);
+        }
+    }
+
+    // Fallback: Elegant Print Window (Bawaan browser yang selalu ada di Chrome/Edge/Firefox)
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+        throw new Error('Popup diblokir browser. Izinkan pop-up untuk mengekspor dokumen.');
+    }
+
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>${filename.replace('.pdf', '')}</title>
+            <style>
+                @page { size: A4; margin: 15mm; }
+                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.65; color: #0f172a; margin: 0; padding: 12px; }
+                table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 10pt; }
+                th, td { border: 1px solid #cbd5e1; padding: 7px 10px; text-align: left; }
+                th { background: #f8fafc; }
+                pre { background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; border-radius: 4px; font-size: 9.5pt; }
+                @media print {
+                    button { display: none; }
+                }
+            </style>
+        </head>
+        <body>
+            ${printContainer.innerHTML}
+            <script>
+                window.onload = function() {
+                    window.print();
+                    setTimeout(function() { window.close(); }, 600);
+                };
+            <\/script>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+    return filename;
+}
+

@@ -136,12 +136,22 @@ function createChatItem(chat, { onSelectChat, onDeleteChat, onTogglePin }) {
 export function updateHeaderModelDisplay() {
     const display = document.getElementById('active-model-display');
     if (!display) return;
+    const nameEl = document.getElementById('active-model-name');
     if (state.selectedModel) {
-        const found = state.models.find(m => m.id === state.selectedModel);
-        display.textContent = found?.name || state.selectedModel;
+        const found = state.models?.find(m => m.id === state.selectedModel);
+        const displayName = found?.name || state.selectedModel;
+        if (nameEl) {
+            nameEl.textContent = displayName;
+        } else {
+            display.textContent = displayName;
+        }
         display.title = `Model aktif: ${state.selectedModel}. Klik untuk mengganti model.`;
     } else {
-        display.textContent = '';
+        if (nameEl) {
+            nameEl.textContent = 'Pilih Model';
+        } else {
+            display.textContent = '';
+        }
         display.removeAttribute('title');
     }
 }

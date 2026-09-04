@@ -24,6 +24,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 
 <body>
@@ -87,7 +88,35 @@
                     <button id="btn-open-sidebar" class="icon-button" aria-label="Buka Sidebar" title="Buka Sidebar">
                         <i data-lucide="menu"></i>
                     </button>
-                    <div class="header-model-info" id="active-model-display" aria-live="polite"></div>
+                    <div class="header-model-selector" id="header-model-selector">
+                        <button id="active-model-display" class="header-model-pill" type="button" aria-haspopup="listbox" aria-expanded="false" title="Pilih Model AI">
+                            <span class="header-model-dot"></span>
+                            <span class="header-model-name" id="active-model-name">Pilih Model</span>
+                            <i data-lucide="chevron-down" class="header-model-chevron"></i>
+                        </button>
+                        <div id="header-model-popover" class="header-model-popover hidden" role="listbox" aria-label="Pilih Model AI">
+                            <div class="header-model-popover-header">
+                                <div class="header-model-search-box">
+                                    <i data-lucide="search" class="header-model-search-icon"></i>
+                                    <input type="text" id="header-model-search-input" placeholder="Cari model AI..." autocomplete="off">
+                                </div>
+                                <div class="header-model-filter-tags">
+                                    <button type="button" class="header-model-tag active" data-filter="all">Semua</button>
+                                    <button type="button" class="header-model-tag" data-filter="free">Gratis (Free)</button>
+                                    <button type="button" class="header-model-tag" data-filter="curated">Rekomendasi</button>
+                                </div>
+                            </div>
+                            <div class="header-model-list-container">
+                                <ul id="header-model-list" class="header-model-list"></ul>
+                            </div>
+                            <div class="header-model-popover-footer">
+                                <button type="button" id="btn-header-open-settings" class="header-model-footer-btn">
+                                    <i data-lucide="sliders-horizontal"></i>
+                                    <span>Kelola Provider & Pengaturan Lengkap</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="header-right">
                     <button id="btn-quick-theme" class="icon-button theme-quick-btn" aria-label="Ganti Tema" title="Ganti Tema" data-i18n-title="theme">

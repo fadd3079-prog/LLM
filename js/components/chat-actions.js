@@ -1,5 +1,5 @@
 import { copyToClipboard } from '../utils/clipboard.js';
-import { downloadTextAsFile, inferFilenameFromBlock, exportMessageAsFile } from '../services/file-generator.js';
+import { downloadTextAsFile, inferFilenameFromBlock, exportMessageAsFile, exportMessageAsPDF } from '../services/file-generator.js';
 import { showToast } from '../utils/toast.js';
 import { t } from '../services/i18n.js';
 
@@ -136,6 +136,31 @@ export function appendAssistantActions(wrapper, contentElement) {
         }
     });
 
+    // Tombol Download Format Dokumen PDF (.pdf)
+    const exportPdfBtn = document.createElement('button');
+    exportPdfBtn.className = 'icon-button export-pdf-btn';
+    exportPdfBtn.setAttribute('aria-label', 'Download PDF (.pdf)');
+    exportPdfBtn.title = 'Download sebagai Dokumen PDF Profesional (.pdf)';
+    exportPdfBtn.innerHTML = '<i data-lucide="file-text"></i>';
+
+    exportPdfBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        exportPdfBtn.disabled = true;
+        exportPdfBtn.innerHTML = '<i data-lucide="loader-2" class="animate-spin"></i>';
+        if (typeof lucide !== 'undefined') lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });
+        try {
+            showToast('Menyiapkan dokumen PDF...', 'info');
+            await exportMessageAsPDF(contentElement, 'Laporan_Riset');
+            showToast('Dokumen PDF berhasil diekspor!', 'success');
+        } catch (err) {
+            showToast(err.message || 'Gagal mengekspor PDF', 'error');
+        } finally {
+            exportPdfBtn.disabled = false;
+            exportPdfBtn.innerHTML = '<i data-lucide="file-text"></i>';
+            if (typeof lucide !== 'undefined') lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });
+        }
+    });
+
     // Tombol Download Format (.md)
     const exportBtn = document.createElement('button');
     exportBtn.className = 'icon-button export-icon-btn';
@@ -146,13 +171,14 @@ export function appendAssistantActions(wrapper, contentElement) {
     exportBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const clone = contentElement.cloneNode(true);
-        clone.querySelectorAll('.code-block-header').forEach(h => h.remove());
+        clone.querySelectorAll('.code-block-header, .assistant-actions, .user-actions, .sources-tray, .thought-box').forEach(h => h.remove());
         const plainText = clone.innerText || clone.textContent || '';
         exportMessageAsFile(plainText, 'md', 'jawaban_ai');
-        showToast('File .md berhasil didownload', 'success');
+        showToast('File Markdown (.md) berhasil didownload', 'success');
     });
 
     actions.appendChild(copyBtn);
+    actions.appendChild(exportPdfBtn);
     actions.appendChild(exportBtn);
     wrapper.appendChild(actions);
 }

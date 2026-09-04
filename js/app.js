@@ -4,6 +4,7 @@ import { initSidebar, renderChats, updateHeaderModelDisplay } from './components
 import { initChatScroll, renderMessages, appendUserMessage, appendStreamingMessage, resumeStreamingMessage, updateStreamingMessage, finalizeStreamingMessage, setEditMessageCallback } from './components/chat.js';
 import { initInputUI, setChatInputValue } from './components/input.js';
 import { initModal } from './components/modal.js';
+import { initHeaderModelSwitcher } from './components/header-models.js';
 import { initSelectionToolbar } from './components/selection-toolbar.js';
 import { showToast } from './utils/toast.js';
 import { formatMemoriesForSystemPrompt } from './services/memory.js';
@@ -12,7 +13,7 @@ import { applyLanguageToDOM } from './services/i18n.js';
 import { getAppKnowledgeSystemPrompt, processAssistantResponseForMemories } from './services/app-knowledge.js';
 import { detectAndParseApiConfig, isPureApiSetupMessage, applyApiConfig, generateConnectionSuccessCard } from './services/api-key-detector.js';
 
-document.addEventListener('DOMContentLoaded', () => {
+function startApp() {
     initStore();
     initChatScroll();
     applyLanguageToDOM();
@@ -38,13 +39,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    let headerModelSwitcher = null;
+
     const modal = initModal({
-        onModelChange: () => updateHeaderModelDisplay(),
+        onModelChange: () => {
+            updateHeaderModelDisplay();
+            headerModelSwitcher?.updateDisplay();
+        },
         onClearAll: () => {
             state.chats = [];
             createChat();
             refreshUI();
             focusChatInputIfDesktop();
+        }
+    });
+
+    headerModelSwitcher = initHeaderModelSwitcher({
+        onModelChange: () => {
+            updateHeaderModelDisplay();
+            refreshUI();
+        },
+        onOpenFullSettings: () => {
+            modal.open('api');
         }
     });
 
@@ -120,10 +136,16 @@ document.addEventListener('DOMContentLoaded', () => {
         link.setAttribute('rel', 'noopener noreferrer');
     }, true);
 
-    document.getElementById('btn-settings')?.addEventListener('click', () => modal.open('umum'));
-    document.getElementById('btn-open-settings')?.addEventListener('click', () => modal.open('umum'));
-    document.getElementById('btn-open-settings-prompt')?.addEventListener('click', () => modal.open('api'));
-    document.getElementById('active-model-display')?.addEventListener('click', () => modal.open('api'));
+    const openApiSettings = (e) => {
+        if (e) e.stopPropagation();
+        modal.open('api');
+    };
+
+    document.getElementById('btn-settings')?.addEventListener('click', openApiSettings);
+    document.querySelector('.user-profile')?.addEventListener('click', openApiSettings);
+    document.getElementById('api-status')?.addEventListener('click', openApiSettings);
+    document.getElementById('btn-open-settings')?.addEventListener('click', openApiSettings);
+    document.getElementById('btn-open-settings-prompt')?.addEventListener('click', openApiSettings);
 
     document.getElementById('btn-quick-theme')?.addEventListener('click', () => {
         const nextTheme = state.config.theme === 'dark' ? 'light' : 'dark';
@@ -142,6 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentChat = getCurrentChat();
         renderMessages(currentChat);
         updateHeaderModelDisplay();
+        headerModelSwitcher?.updateDisplay();
 
         const apiStatus = document.getElementById('api-status');
         if (apiStatus) {
@@ -159,6 +182,10 @@ document.addEventListener('DOMContentLoaded', () => {
             onDeleteChat: (id) => { deleteChat(id); refreshUI(); },
             onTogglePin: (id) => { togglePinChat(id); refreshUI(); }
         });
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });
+        }
     }
 
     async function executeStream(chat, assistantMsg, isContinuation = false, streamOptions = {}) {
@@ -459,4 +486,10 @@ document.addEventListener('DOMContentLoaded', () => {
             saveStore();
         }
     }
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', startApp);
+} else {
+    startApp();
+}

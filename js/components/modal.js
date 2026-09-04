@@ -436,19 +436,34 @@ export function initModal({ onModelChange, onClearAll }) {
     syncFormFromState();
 
     return {
-        open: (tabName = 'general') => {
+        open: (tabName = 'api') => {
             syncFormFromState();
-            let norm = (tabName || 'general').toLowerCase();
+            let norm = (tabName || 'api').toLowerCase();
             if (norm === 'umum') norm = 'general';
             if (norm === 'tampilan') norm = 'appearance';
             const targetTab = document.querySelector(`.nav-tab[data-tab="${norm}"]`) || 
                               document.getElementById(`tab-${norm}`) ||
                               document.getElementById(`tab-${tabName}`);
-            if (targetTab) targetTab.click();
-            modal.showModal();
+            if (targetTab) {
+                targetTab.click();
+            }
+            try {
+                if (!modal.open) {
+                    modal.showModal();
+                }
+            } catch (err) {
+                console.warn('Gagal memanggil showModal:', err);
+            }
+
+            if (norm === 'api' && apiKeyInput) {
+                setTimeout(() => {
+                    apiKeyInput.focus();
+                }, 80);
+            }
+
             const cfg = PROVIDERS_CONFIG[state.config.provider] || PROVIDERS_CONFIG.openrouter;
             const currentKey = state.config.apiKeys?.[state.config.provider] || (state.config.provider === 'openrouter' ? state.config.apiKey : '') || '';
-            if ((currentKey || cfg.isLocal) && state.models.length === 0) {
+            if ((currentKey || cfg.isLocal) && (!state.models || state.models.length === 0)) {
                 modelSelector.loadModelCatalog();
             }
         },
