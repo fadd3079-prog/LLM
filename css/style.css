@@ -1314,99 +1314,233 @@ b, strong {
 
 .image-preview-tray {
     display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-xs);
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-hairline);
-    border-radius: var(--rounded-lg);
-    box-shadow: var(--shadow-level-1);
-    overflow-x: auto;
-}
-
-.image-preview-item {
-    position: relative;
-    width: 48px;
-    height: 48px;
-    border-radius: var(--rounded-sm);
-    overflow: hidden;
-    border: 1px solid var(--color-hairline);
-    flex-shrink: 0;
-}
-
-.image-preview-item.is-file {
-    width: auto;
-    max-width: 200px;
-    height: 48px;
-    padding: 6px 28px 6px 10px;
-    display: flex;
-    align-items: center;
-    background-color: var(--color-canvas-soft);
-    border-radius: var(--rounded-md);
-    border: 1px solid var(--color-hairline-strong);
-}
-
-.file-badge-preview {
-    display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
-    overflow: hidden;
+    padding: 0 4px 10px 4px;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    max-height: 180px;
+    overflow-y: auto;
+    width: 100%;
 }
 
-.badge-icon {
-    width: 18px !important;
-    height: 18px !important;
+.image-preview-tray.hidden {
+    display: none !important;
+}
+
+.attachment-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px 6px 8px;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-hairline);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 10px rgba(0, 0, 0, 0.02);
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    max-width: 260px;
+    user-select: none;
+}
+
+.attachment-chip:hover {
+    border-color: var(--color-hairline-strong);
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.07);
+    transform: translateY(-1px);
+}
+
+.attachment-icon-badge {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
+}
+
+.attachment-chip:hover .attachment-icon-badge {
+    transform: scale(1.05);
+}
+
+.attachment-icon-badge svg {
+    width: 18px;
+    height: 18px;
+    stroke-width: 2px;
+}
+
+/* Color palettes per file type */
+.attachment-icon-badge.pdf {
+    background-color: #FEF2F2;
+    color: #DC2626;
+    border: 1px solid #FEE2E2;
+}
+[data-theme="dark"] .attachment-icon-badge.pdf {
+    background-color: rgba(239, 68, 68, 0.16);
+    color: #F87171;
+    border-color: rgba(239, 68, 68, 0.28);
+}
+
+.attachment-icon-badge.presentation {
+    background-color: #FFF7ED;
+    color: #EA580C;
+    border: 1px solid #FFEDD5;
+}
+[data-theme="dark"] .attachment-icon-badge.presentation {
+    background-color: rgba(234, 88, 12, 0.16);
+    color: #FB923C;
+    border-color: rgba(234, 88, 12, 0.28);
+}
+
+.attachment-icon-badge.document {
+    background-color: #EFF6FF;
+    color: #2563EB;
+    border: 1px solid #DBEAFE;
+}
+[data-theme="dark"] .attachment-icon-badge.document {
+    background-color: rgba(37, 99, 235, 0.16);
+    color: #60A5FA;
+    border-color: rgba(37, 99, 235, 0.28);
+}
+
+.attachment-icon-badge.spreadsheet {
+    background-color: #ECFDF5;
+    color: #059669;
+    border: 1px solid #D1FAE5;
+}
+[data-theme="dark"] .attachment-icon-badge.spreadsheet {
+    background-color: rgba(5, 150, 105, 0.16);
+    color: #34D399;
+    border-color: rgba(5, 150, 105, 0.28);
+}
+
+.attachment-icon-badge.zip {
+    background-color: #FFFBEB;
+    color: #D97706;
+    border: 1px solid #FEF3C7;
+}
+[data-theme="dark"] .attachment-icon-badge.zip {
+    background-color: rgba(217, 119, 6, 0.16);
+    color: #FBBF24;
+    border-color: rgba(217, 119, 6, 0.28);
+}
+
+.attachment-icon-badge.code,
+.attachment-icon-badge.text {
+    background-color: #F1F5F9;
+    color: #475569;
+    border: 1px solid #E2E8F0;
+}
+[data-theme="dark"] .attachment-icon-badge.code,
+[data-theme="dark"] .attachment-icon-badge.text {
+    background-color: rgba(100, 116, 139, 0.16);
+    color: #94A3B8;
+    border-color: rgba(100, 116, 139, 0.28);
+}
+
+.attachment-thumb-wrap {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    overflow: hidden;
+    border: 1px solid var(--color-hairline);
     flex-shrink: 0;
 }
 
-.badge-icon.pdf { color: #EF4444; }
-.badge-icon.zip { color: #F59E0B; }
-.badge-icon.text { color: var(--color-coral); }
-
-.badge-texts {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    line-height: 1.25;
+.attachment-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
-.badge-name {
-    font-size: 12px;
+.attachment-chip-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    overflow: hidden;
+    flex: 1;
+}
+
+.attachment-chip-name {
+    font-size: 12.5px;
     font-weight: 600;
     color: var(--color-ink);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 130px;
+    line-height: 1.3;
 }
 
-.badge-size {
+.attachment-chip-meta {
     font-size: 10.5px;
-    color: var(--color-mute);
+    color: var(--color-muted);
     font-family: var(--font-mono);
+    line-height: 1.2;
+}
+
+.attachment-chip-remove {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--color-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+    margin-left: 2px;
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.attachment-chip-remove:hover {
+    background-color: var(--color-hairline-strong);
+    color: var(--color-ink);
+    transform: scale(1.1);
+}
+
+.attachment-chip-remove svg {
+    width: 13px;
+    height: 13px;
+    stroke-width: 2.2px;
 }
 
 .msg-file-badge {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 5px 10px;
+    gap: 8px;
+    padding: 6px 12px;
     background-color: var(--color-surface);
-    border: 1px solid var(--color-hairline-strong);
-    border-radius: var(--rounded-sm);
+    border: 1px solid var(--color-hairline);
+    border-radius: 10px;
     font-size: 12px;
-    box-shadow: var(--shadow-level-1);
-    max-width: 240px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    max-width: 280px;
+    margin-top: 4px;
+    transition: border-color 0.15s ease;
+}
+
+.msg-file-badge:hover {
+    border-color: var(--color-hairline-strong);
 }
 
 .msg-file-badge.pdf .msg-file-icon { color: #EF4444; }
-.msg-file-badge.zip .msg-file-icon { color: #F59E0B; }
+.msg-file-badge.presentation .msg-file-icon { color: #EA580C; }
+.msg-file-badge.document .msg-file-icon { color: #2563EB; }
+.msg-file-badge.spreadsheet .msg-file-icon { color: #059669; }
+.msg-file-badge.zip .msg-file-icon { color: #D97706; }
 .msg-file-badge.text .msg-file-icon { color: var(--color-coral); }
 
 .msg-file-icon {
-    width: 15px !important;
-    height: 15px !important;
+    width: 17px !important;
+    height: 17px !important;
     flex-shrink: 0;
+    stroke-width: 2px;
 }
 
 .msg-file-name {
@@ -1415,39 +1549,13 @@ b, strong {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 150px;
+    max-width: 160px;
 }
 
 .msg-file-size {
-    font-size: 10px;
-    color: var(--color-mute);
+    font-size: 10.5px;
+    color: var(--color-muted);
     font-family: var(--font-mono);
-}
-
-.image-preview-item img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.image-preview-item .remove-btn {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 18px;
-    height: 18px;
-    border-radius: var(--rounded-full);
-    background: rgba(0, 0, 0, 0.65);
-    color: #FFFFFF;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-}
-
-.image-preview-item .remove-btn svg {
-    width: 11px !important;
-    height: 11px !important;
 }
 
 .toast-container {
@@ -1505,20 +1613,24 @@ b, strong {
     position: absolute;
     inset: 16px;
     z-index: 50;
-    border: 2px dashed var(--color-coral);
-    border-radius: var(--rounded-xl);
-    background-color: var(--color-surface);
-    background-color: color-mix(in srgb, var(--color-surface) 92%, transparent);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    border: 2.5px dashed var(--color-coral);
+    border-radius: 20px;
+    background-color: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     display: flex;
     align-items: center;
     justify-content: center;
     pointer-events: none;
     opacity: 0;
-    transform: scale(0.98);
-    transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: var(--shadow-level-5);
+    transform: scale(0.97);
+    transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+}
+
+[data-theme="dark"] .drop-overlay {
+    background-color: rgba(23, 23, 23, 0.9);
+    box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
 }
 
 .drop-overlay.active {
@@ -1531,41 +1643,45 @@ b, strong {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     text-align: center;
     padding: var(--spacing-xl);
     user-select: none;
 }
 
 .drop-icon-wrapper {
-    width: 64px;
-    height: 64px;
-    border-radius: var(--rounded-full);
-    background-color: var(--color-coral-light);
+    width: 68px;
+    height: 68px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, var(--color-coral-light), rgba(249, 115, 22, 0.2));
     color: var(--color-coral);
     display: flex;
     align-items: center;
     justify-content: center;
     margin-bottom: 4px;
-    animation: pulseDrop 2s infinite ease-in-out;
+    box-shadow: 0 8px 24px -4px rgba(249, 115, 22, 0.25);
+    animation: floatCloud 2.2s ease-in-out infinite;
 }
 
 .drop-icon-wrapper svg {
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
+    stroke-width: 2px;
 }
 
 .drop-title {
-    font-size: 1.25rem;
+    font-size: 1.3rem;
     font-weight: 700;
     color: var(--color-ink);
-    letter-spacing: -0.025em;
+    letter-spacing: -0.015em;
     margin: 0;
 }
 
 .drop-subtitle {
-    font-size: 13px;
-    color: var(--color-mute);
+    font-size: 13.5px;
+    color: var(--color-muted);
+    max-width: 380px;
+    line-height: 1.45;
     margin: 0;
 }
 

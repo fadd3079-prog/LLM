@@ -129,6 +129,7 @@ export function initInputUI(onSendMessage, onStopGeneration) {
             dragCounter++;
             if (e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
                 dropOverlay.classList.remove('hidden');
+                dropOverlay.classList.add('active');
             }
         });
 
@@ -136,12 +137,14 @@ export function initInputUI(onSendMessage, onStopGeneration) {
             dragCounter--;
             if (dragCounter <= 0) {
                 dragCounter = 0;
+                dropOverlay.classList.remove('active');
                 dropOverlay.classList.add('hidden');
             }
         });
 
         window.addEventListener('drop', async (e) => {
             dragCounter = 0;
+            dropOverlay.classList.remove('active');
             dropOverlay.classList.add('hidden');
             const files = Array.from(e.dataTransfer.files);
             if (files.length > 0) {
@@ -164,9 +167,15 @@ export function initInputUI(onSendMessage, onStopGeneration) {
         imagePreviewTray.innerHTML = attachments.map(item => {
             if (item.category === 'image' || item.type?.startsWith('image/')) {
                 return `
-                    <div class="preview-item image-item" data-id="${item.id}">
-                        <img src="${item.data}" alt="${item.name}" class="preview-thumbnail">
-                        <button class="btn-remove-attachment" data-id="${item.id}" aria-label="Hapus ${item.name}">
+                    <div class="attachment-chip image-chip" data-id="${item.id}" title="${item.name}">
+                        <div class="attachment-thumb-wrap">
+                            <img src="${item.data}" alt="${item.name}" class="attachment-thumb">
+                        </div>
+                        <div class="attachment-chip-info">
+                            <span class="attachment-chip-name">${item.name}</span>
+                            <span class="attachment-chip-meta">${item.sizeFormatted || 'Gambar'}</span>
+                        </div>
+                        <button class="attachment-chip-remove" data-id="${item.id}" type="button" aria-label="Hapus ${item.name}" title="Hapus berkas">
                             <i data-lucide="x"></i>
                         </button>
                     </div>
@@ -177,23 +186,32 @@ export function initInputUI(onSendMessage, onStopGeneration) {
                 pdf: 'file-text',
                 presentation: 'presentation',
                 document: 'file-text',
-                spreadsheet: 'table',
+                spreadsheet: 'table-2',
                 zip: 'archive',
                 code: 'file-code',
                 text: 'file-text'
             };
-            const icon = iconMap[item.category] || 'file';
+            const icon = iconMap[item.category] || 'file-text';
+
+            let metaText = item.sizeFormatted || '';
+            if (item.pageCount) {
+                metaText += ` • ${item.pageCount} Hal`;
+            } else if (item.slideCount) {
+                metaText += ` • ${item.slideCount} Slide`;
+            } else if (item.ext) {
+                metaText += ` • ${item.ext.toUpperCase()}`;
+            }
 
             return `
-                <div class="preview-item file-item ${item.category || 'text'}" data-id="${item.id}">
-                    <div class="file-item-icon">
+                <div class="attachment-chip file-chip ${item.category || 'text'}" data-id="${item.id}" title="${item.name}">
+                    <div class="attachment-icon-badge ${item.category || 'text'}">
                         <i data-lucide="${icon}"></i>
                     </div>
-                    <div class="file-item-info">
-                        <span class="file-item-name" title="${item.name}">${item.name}</span>
-                        <span class="file-item-size">${item.sizeFormatted || ''}</span>
+                    <div class="attachment-chip-info">
+                        <span class="attachment-chip-name">${item.name}</span>
+                        <span class="attachment-chip-meta">${metaText}</span>
                     </div>
-                    <button class="btn-remove-attachment" data-id="${item.id}" aria-label="Hapus ${item.name}">
+                    <button class="attachment-chip-remove" data-id="${item.id}" type="button" aria-label="Hapus ${item.name}" title="Hapus berkas">
                         <i data-lucide="x"></i>
                     </button>
                 </div>
@@ -201,10 +219,10 @@ export function initInputUI(onSendMessage, onStopGeneration) {
         }).join('');
 
         if (typeof lucide !== 'undefined') {
-            lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });
+            lucide.createIcons({ attrs: { 'stroke-width': '1.8' } });
         }
 
-        imagePreviewTray.querySelectorAll('.btn-remove-attachment').forEach(btn => {
+        imagePreviewTray.querySelectorAll('.attachment-chip-remove').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const id = btn.dataset.id;
