@@ -298,20 +298,29 @@
     align-items: center;
     gap: var(--spacing-xs);
     margin-bottom: 6px;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    pointer-events: none;
 }
 
 .role-badge {
     font-family: var(--font-mono);
     font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    text-transform: capitalize;
+    letter-spacing: 0.02em;
     color: var(--color-coral);
     font-weight: 600;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .timestamp {
     font-size: 11px;
     color: var(--color-muted-soft);
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .message-wrapper.user .message-content {
