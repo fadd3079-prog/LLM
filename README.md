@@ -18,8 +18,8 @@ Web client chat model-model LLM (OpenRouter & NVIDIA NIM)
 - **Streaming Halus**: Respon teks streaming lancar, ga bergetar, dan otomatis lanjut kalau browser sempat ke-refresh di tengah jalan
 - **Upload Berbagai File**: Bisa ekstrak dan baca PDF, ZIP, Markdown, file kode, teks biasa, sampai gambar (multimodal)
 - **Tabel & Kode Rapi**: Format tabel ala MS Word yang rapi, plus syntax highlighting kode lengkap dengan tombol copy
-- **Privat di LocalStorage**: Riwayat percakapan, pengaturan, dan API key tersimpan lokal di browser lu sendiri
-- **Tema & Personalisasi**: Pilihan tema Terang, Gelap, atau ngikut OS, plus custom system prompt buat ngatur gaya jawab AI
+- **Privat di LocalStorage**: Riwayat chat, pengaturan, dan API key tersimpan lokal di browser lu sendiri
+- **Tema & Personalisasi**: Pilihan tema Light, Dark, atau ngikut OS, plus custom system prompt buat ngatur gaya jawab AI
 
 1. Clone repo:
    ```bash

@@ -78,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
         finalizeStreamingMessage();
         chatInputControls.setGenerating(false);
         chatInputControls.enableInput(true);
-        showToast('Respon AI dihentikan', 'info');
+        showToast('Respon dihentikan', 'info');
     }
 
     document.addEventListener('keydown', (e) => {
@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-quick-theme')?.addEventListener('click', () => {
         const nextTheme = state.config.theme === 'dark' ? 'light' : 'dark';
         setTheme(nextTheme);
-        showToast(nextTheme === 'dark' ? 'Mode Gelap aktif' : 'Mode Terang aktif', 'info');
+        showToast(nextTheme === 'dark' ? 'Dark Mode aktif' : 'Light Mode aktif', 'info');
     });
 
     document.querySelectorAll('.suggestion-card').forEach(card => {
@@ -113,10 +113,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const apiStatus = document.getElementById('api-status');
         if (apiStatus) {
             if (state.config.apiKey) {
-                apiStatus.textContent = 'Terhubung';
+                apiStatus.textContent = 'Connected';
                 apiStatus.classList.add('connected');
             } else {
-                apiStatus.textContent = 'Belum Terhubung';
+                apiStatus.textContent = 'Offline';
                 apiStatus.classList.remove('connected');
             }
         }
@@ -153,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const messagesForApi = [];
 
             // Gabungkan instruksi sistem, kapabilitas file, dan memori lintas chat
-            const fileCapabilityPrompt = `\n\n[KEMAMPUAN MEMBUAT FILE]\nAnda memiliki kemampuan penuh untuk membuat, menyusun, dan membagikan berbagai macam file (seperti Markdown .md, Dokumen Teks .txt, Skrip Python .py, HTML/CSS/JS, CSV, JSON, SQL, Shell script, dll). Jika pengguna meminta Anda membuat, menyimpan, atau menulis file, buatlah isi file tersebut secara lengkap dalam blok kode dengan menyertakan nama file (contoh: \`\`\`markdown:dokumen.md atau \`\`\`python:skrip.py) dan beri penjelasan singkat. Aplikasi ini otomatis menyediakan tombol 'Unduh File' di samping blok kode sehingga pengguna dapat langsung mendownloadnya. Jangan pernah mengatakan bahwa Anda tidak bisa membuat atau menyimpan file.`;
+            const fileCapabilityPrompt = `\n\n[KEMAMPUAN MEMBUAT FILE]\nAnda memiliki kemampuan penuh untuk membuat, menyusun, dan membagikan berbagai macam file (seperti Markdown .md, Dokumen Teks .txt, Skrip Python .py, HTML/CSS/JS, CSV, JSON, SQL, Shell script, dll). Jika pengguna meminta Anda membuat, menyimpan, atau menulis file, buatlah isi file tersebut secara lengkap dalam blok kode dengan menyertakan nama file (contoh: \`\`\`markdown:dokumen.md atau \`\`\`python:skrip.py) dan beri penjelasan singkat. Aplikasi ini otomatis menyediakan tombol 'Download File' di samping blok kode sehingga pengguna dapat langsung mendownloadnya. Jangan pernah mengatakan bahwa Anda tidak bisa membuat atau menyimpan file.`;
             const memoriesPrompt = formatMemoriesForSystemPrompt();
             const fullSystemPrompt = (state.config.systemPrompt || '') + fileCapabilityPrompt + memoriesPrompt;
 
@@ -266,7 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!state.config.apiKey) {
             modal.open('api');
-            showToast('Silakan masukkan API Key Anda terlebih dahulu', 'error');
+            showToast('Masukkan API Key terlebih dahulu di Settings', 'error');
             return;
         }
 
@@ -315,7 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
             addMessage('assistant', assistantMarkdown);
             saveStore();
             renderMessages(currentChat);
-            showToast('Prompt diperbarui & gambar AI baru dibuat', 'success');
+            showToast('Prompt diupdate, gambar AI digenerate...', 'success');
 
             renderChats({
                 onSelectChat: (id) => { state.currentChatId = id; refreshUI(); },
@@ -328,7 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!state.config.apiKey) {
             renderMessages(currentChat);
             modal.open('api');
-            showToast('Silakan masukkan API Key Anda terlebih dahulu', 'error');
+            showToast('Masukkan API Key terlebih dahulu di Settings', 'error');
             return;
         }
 
@@ -351,7 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const isWebSearch = chatInputControls?.isWebSearchActive ? chatInputControls.isWebSearchActive() : false;
         executeStream(currentChat, assistantMsg, false, { webSearch: isWebSearch });
-        showToast('Prompt diperbarui, AI merespon ulang...', 'info');
+        showToast('Prompt diupdate, AI generate respon baru...', 'info');
     }
 
     refreshUI();

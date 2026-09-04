@@ -82,14 +82,14 @@ function createChatItem(chat, { onSelectChat, onDeleteChat, onTogglePin }) {
 
     const title = document.createElement('span');
     title.className = 'chat-title';
-    title.textContent = chat.title || 'Percakapan';
+    title.textContent = chat.title || 'Chat Baru';
 
     const actions = document.createElement('div');
     actions.className = 'chat-item-actions';
 
     const pinBtn = document.createElement('button');
     pinBtn.className = `chat-item-btn pin-btn ${chat.pinned ? 'pinned' : ''}`;
-    pinBtn.title = chat.pinned ? 'Lepas sematan' : 'Sematkan';
+    pinBtn.title = chat.pinned ? 'Unpin chat' : 'Pin chat';
     pinBtn.innerHTML = `<i data-lucide="${chat.pinned ? 'pin-off' : 'pin'}"></i>`;
     pinBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -102,7 +102,7 @@ function createChatItem(chat, { onSelectChat, onDeleteChat, onTogglePin }) {
     deleteBtn.innerHTML = '<i data-lucide="trash-2"></i>';
     deleteBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (confirm('Hapus percakapan ini?')) {
+        if (confirm('Hapus chat ini?')) {
             onDeleteChat(chat.id);
         }
     });

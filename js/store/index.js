@@ -98,7 +98,7 @@ export function addMessage(role, content, attachments = []) {
     chat.messages.push(msg);
 
     if (chat.messages.length === 1 && role === 'user') {
-        const generatedTitle = content.trim().slice(0, 30) || 'Percakapan';
+        const generatedTitle = content.trim().slice(0, 30) || 'Chat Baru';
         chat.title = generatedTitle;
     }
 
@@ -117,7 +117,7 @@ export function editMessageAndTruncate(messageId, newContent) {
     chat.messages = chat.messages.slice(0, index + 1);
 
     if (index === 0 && chat.messages[0].role === 'user') {
-        const generatedTitle = newContent.trim().slice(0, 30) || 'Percakapan';
+        const generatedTitle = newContent.trim().slice(0, 30) || 'Chat Baru';
         chat.title = generatedTitle;
     }
 

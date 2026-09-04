@@ -22,11 +22,11 @@ export function enhanceImages(container) {
                 <span class="ai-image-title">${img.alt || 'Gambar Dihasilkan AI'}</span>
             </div>
             <div class="ai-image-actions">
-                <button class="ai-image-btn btn-dl-img" title="Unduh Gambar" aria-label="Unduh Gambar">
+                <button class="ai-image-btn btn-dl-img" title="Download Gambar" aria-label="Download Gambar">
                     <i data-lucide="download"></i>
-                    <span>Unduh</span>
+                    <span>Download</span>
                 </button>
-                <button class="ai-image-btn btn-view-img" title="Buka Gambar Resolusi Penuh" aria-label="Buka Gambar">
+                <button class="ai-image-btn btn-view-img" title="Buka Gambar (Full Size)" aria-label="Buka Gambar">
                     <i data-lucide="external-link"></i>
                 </button>
             </div>

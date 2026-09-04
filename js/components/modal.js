@@ -134,7 +134,7 @@ export function initModal({ onModelChange, onClearAll }) {
         addMemory(text);
         inputNewMemory.value = '';
         renderMemoryUI();
-        showToast('Memori baru berhasil disimpan', 'success');
+        showToast('Memori berhasil disimpan', 'success');
     }
 
     if (btnAddMemory) {
@@ -150,10 +150,10 @@ export function initModal({ onModelChange, onClearAll }) {
     }
     if (btnClearMemories) {
         btnClearMemories.addEventListener('click', () => {
-            if (confirm('Hapus seluruh memori yang diingat AI?')) {
+            if (confirm('Hapus seluruh memori AI?')) {
                 clearAllMemories();
                 renderMemoryUI();
-                showToast('Seluruh memori AI berhasil dibersihkan', 'info');
+                showToast('Seluruh memori AI berhasil dihapus', 'info');
             }
         });
     }
@@ -285,16 +285,16 @@ export function initModal({ onModelChange, onClearAll }) {
             const lang = opt.dataset.lang;
             setLanguage(lang);
             syncFormFromState();
-            showToast(lang === 'en' ? 'Language set to English' : (lang === 'id' ? 'Bahasa diatur ke Bahasa Indonesia' : 'Bahasa otomatis sesuai perangkat'), 'info');
+            showToast(lang === 'en' ? 'Language: English' : (lang === 'id' ? 'Bahasa: Indonesia' : 'Bahasa: Auto (Perangkat)'), 'info');
         });
     });
 
     if (btnClearAll) {
         btnClearAll.addEventListener('click', () => {
-            if (confirm('Hapus semua riwayat percakapan? Tindakan ini tidak dapat dibatalkan.')) {
+            if (confirm('Hapus semua riwayat chat? Tindakan ini tidak bisa dibatalkan.')) {
                 if (onClearAll) onClearAll();
                 modal.close();
-                showToast('Semua percakapan berhasil dibersihkan', 'success');
+                showToast('Semua chat berhasil dihapus', 'success');
             }
         });
     }

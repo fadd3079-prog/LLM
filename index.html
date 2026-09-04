@@ -48,16 +48,16 @@
             </div>
 
             <div class="sidebar-scroll-area">
-                <section class="sidebar-section pinned-section" aria-label="Percakapan Disematkan">
+                <section class="sidebar-section pinned-section" aria-label="Pinned Chat">
                     <div class="section-header">
-                        <h3>Disematkan</h3>
+                        <h3>Pinned</h3>
                     </div>
                     <ul id="pinned-chats-list" class="chat-list" role="list"></ul>
                 </section>
 
-                <section class="sidebar-section history-section" aria-label="Riwayat Percakapan">
+                <section class="sidebar-section history-section" aria-label="Riwayat Chat">
                     <div class="section-header">
-                        <h3>Riwayat</h3>
+                        <h3>Riwayat Chat</h3>
                     </div>
                     <ul id="chat-history-list" class="chat-list" role="list"></ul>
                 </section>
@@ -69,10 +69,10 @@
                         <i data-lucide="user"></i>
                     </div>
                     <div class="user-info">
-                        <span class="user-name">Pengguna API</span>
-                        <span class="user-status" id="api-status">Belum Terhubung</span>
+                        <span class="user-name">API User</span>
+                        <span class="user-status" id="api-status">Offline</span>
                     </div>
-                    <button id="btn-settings" class="icon-button" aria-label="Buka Pengaturan" title="Pengaturan" data-i18n-title="settings">
+                    <button id="btn-settings" class="icon-button" aria-label="Settings" title="Settings" data-i18n-title="settings">
                         <i data-lucide="settings"></i>
                     </button>
                 </div>
@@ -101,12 +101,12 @@
                     <div class="drop-icon-wrapper">
                         <i data-lucide="upload-cloud"></i>
                     </div>
-                    <p class="drop-title">Lepaskan file di sini</p>
-                    <p class="drop-subtitle">Mendukung Gambar, PDF, ZIP, Dokumen, dan Kode (maks 30MB)</p>
+                    <p class="drop-title">Drop file di sini</p>
+                    <p class="drop-subtitle">Upload Gambar, PDF, ZIP, Dokumen, atau Kode (maks 30MB)</p>
                 </div>
             </div>
 
-            <div id="chat-canvas" class="chat-canvas" role="log" aria-live="polite" aria-label="Jendela Percakapan">
+            <div id="chat-canvas" class="chat-canvas" role="log" aria-live="polite" aria-label="Chat Canvas">
                 <div class="chat-canvas-inner">
 
                     <div id="empty-state" class="empty-state">
@@ -114,9 +114,9 @@
                             <img src="assets/logo.svg" alt="AI Workspace Logo" class="hero-logo">
                         </div>
                         <h1 class="hero-title">Meet your thinking partner</h1>
-                        <p class="hero-subtitle">Silakan atur Provider dan API Key di <button
-                                id="btn-open-settings-prompt" class="inline-link-button">Pengaturan</button> untuk
-                            memulai</p>
+                        <p class="hero-subtitle">Atur Provider dan API Key di <button
+                                id="btn-open-settings-prompt" class="inline-link-button">Settings</button> untuk
+                            mulai chat</p>
                         <div class="suggestion-grid">
                             <button class="suggestion-card"
                                 data-prompt="Tolong buatkan ringkasan eksekutif dari teks berikut. Sajikan dalam format:&#10;1. Ikhtisar Inti (2-3 kalimat)&#10;2. Poin-Poin Utama&#10;3. Action Items / Rekomendasi&#10;&#10;[Tempelkan teks atau dokumen di sini]">
@@ -155,18 +155,18 @@
                     <div id="image-preview-tray" class="image-preview-tray hidden"
                         aria-label="Pratinjau lampiran gambar"></div>
                     <div class="input-wrapper">
-                        <button id="btn-attach" class="icon-button attach-btn" aria-label="Lampirkan Berkas"
-                            title="Lampirkan Berkas (Gambar, PDF, ZIP, Dokumen, Kode)" data-i18n-title="attach">
+                        <button id="btn-attach" class="icon-button attach-btn" aria-label="Attach file"
+                            title="Attach file (Gambar, PDF, ZIP, Dokumen, Kode)" data-i18n-title="attach">
                             <i data-lucide="paperclip"></i>
                         </button>
-                        <button id="btn-web-search" class="icon-button web-search-btn" aria-label="Riset Web Terkini"
-                            title="Riset Web Terkini (Cari informasi terbaru di internet)" data-i18n-title="web_search_active" aria-pressed="false">
+                        <button id="btn-web-search" class="icon-button web-search-btn" aria-label="Web Search"
+                            title="Web Search Aktif (Live browsing internet)" data-i18n-title="web_search_active" aria-pressed="false">
                             <i data-lucide="globe"></i>
                         </button>
                         <input type="file" id="file-input" class="hidden" accept="*" multiple>
-                        <textarea id="chat-input" class="chat-input" placeholder="Tanyakan apa saja, riset topik, atau buat file..." rows="1"
+                        <textarea id="chat-input" class="chat-input" placeholder="Tanya apa saja, riset web, atau buat file..." rows="1"
                             aria-label="Input pesan" data-i18n-placeholder="placeholder_input"></textarea>
-                        <button id="btn-send" class="icon-button send-btn" aria-label="Kirim Pesan" title="Kirim Pesan" data-i18n-title="send"
+                        <button id="btn-send" class="icon-button send-btn" aria-label="Kirim" title="Kirim" data-i18n-title="send"
                             disabled>
                             <i data-lucide="arrow-up"></i>
                         </button>
@@ -180,9 +180,9 @@
         <div class="modal-content">
             <header class="modal-header">
                 <div class="modal-header-titles">
-                    <h2 id="settings-modal-title" class="modal-title" data-i18n="settings">Pengaturan</h2>
+                    <h2 id="settings-modal-title" class="modal-title" data-i18n="settings">Settings</h2>
                 </div>
-                <button id="btn-close-modal" class="icon-button" aria-label="Tutup Pengaturan" title="Tutup">
+                <button id="btn-close-modal" class="icon-button" aria-label="Tutup" title="Tutup">
                     <i data-lucide="x"></i>
                 </button>
             </header>
@@ -192,7 +192,7 @@
                     <button role="tab" id="tab-general" class="nav-tab tab-button active" data-tab="general"
                         aria-selected="true" aria-controls="panel-general">
                         <i data-lucide="sliders-horizontal"></i>
-                        <span data-i18n="general">Umum</span>
+                        <span data-i18n="general">General</span>
                     </button>
                     <button role="tab" id="tab-appearance" class="nav-tab tab-button" data-tab="appearance"
                         aria-selected="false" aria-controls="panel-appearance">
@@ -217,7 +217,7 @@
                         <div class="settings-card">
                             <div class="section-title">
                                 <div class="title-with-status">
-                                    <h3 data-i18n="personalization">Personalisasi</h3>
+                                    <h3 data-i18n="personalization">System Instructions</h3>
                                     <span class="status-badge-mini" id="system-prompt-status">
                                         <i data-lucide="check" style="width:12px;height:12px;"></i> Tersimpan
                                     </span>
@@ -225,13 +225,13 @@
                             </div>
                             <div class="input-group">
                                 <textarea id="system-prompt" rows="3"
-                                    placeholder="Contoh: Anda adalah asisten AI yang cerdas, ramah, dan membantu..."></textarea>
+                                    placeholder="Contoh: Anda adalah asisten AI yang cerdas, to the point, dan solutif..."></textarea>
                             </div>
                         </div>
 
                         <div class="settings-card">
                             <div class="section-title">
-                                <h3 data-i18n="generation_params">Parameter Generasi</h3>
+                                <h3 data-i18n="generation_params">Pengaturan Model</h3>
                             </div>
                             <div class="input-group">
                                 <div class="label-with-value">
@@ -240,8 +240,8 @@
                                 </div>
                                 <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7">
                                 <div class="range-endpoints">
-                                    <span>0.0 (Presisi & Faktual)</span>
-                                    <span>2.0 (Sangat Kreatif)</span>
+                                    <span>0.0 (Faktual & Konsisten)</span>
+                                    <span>2.0 (Kreatif)</span>
                                 </div>
                             </div>
                             <div class="input-group">
@@ -259,11 +259,11 @@
 
                         <div class="settings-card danger-card">
                             <div class="section-title">
-                                <h3 data-i18n="conversation_data">Data Percakapan</h3>
+                                <h3 data-i18n="conversation_data">Riwayat Chat</h3>
                             </div>
                             <button id="btn-clear-all" class="button-danger" type="button">
                                 <i data-lucide="trash-2"></i>
-                                <span data-i18n="clear_all">Hapus Semua Percakapan</span>
+                                <span data-i18n="clear_all">Hapus Semua Chat</span>
                             </button>
                         </div>
                     </div>
@@ -291,7 +291,7 @@
 
                         <div class="settings-card">
                             <div class="section-title">
-                                <h3 data-i18n="language">Bahasa Antarmuka</h3>
+                                <h3 data-i18n="language">Bahasa</h3>
                             </div>
                             <div class="segmented-control lang-segmented">
                                 <button class="lang-option segmented-btn" data-lang="auto" type="button">
@@ -312,19 +312,19 @@
                         <div class="settings-card">
                             <div class="section-title">
                                 <div class="title-with-status">
-                                    <h3>Koneksi API & Model</h3>
+                                    <h3 data-i18n="api_model">Koneksi API & Model</h3>
                                     <div class="status-indicator-bar" id="modal-status-bar">
                                         <span class="status-dot"></span>
-                                        <span class="status-label" id="modal-api-status">Belum Terhubung</span>
+                                        <span class="status-label" id="modal-api-status">Offline</span>
                                     </div>
                                 </div>
                             </div>
 
                             <div class="input-group">
-                                <label for="modal-provider">Penyedia Layanan (Provider)</label>
+                                <label for="modal-provider">Provider API</label>
                                 <div class="select-wrapper">
                                     <select id="modal-provider" class="custom-select">
-                                        <option value="openrouter">OpenRouter (favorit)</option>
+                                        <option value="openrouter">OpenRouter (Recommended)</option>
                                         <option value="nvidia">NVIDIA NIM</option>
                                     </select>
                                     <i data-lucide="chevron-down" class="select-chevron"></i>
@@ -336,7 +336,7 @@
                                     <label for="modal-api-key">API Key</label>
                                     <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer"
                                         class="api-help-link">
-                                        Dapatkan API Key OpenRouter
+                                        Ambil API Key OpenRouter
                                     </a>
                                 </div>
                                 <div class="password-wrapper">
@@ -347,17 +347,16 @@
                                         <i data-lucide="eye"></i>
                                     </button>
                                 </div>
-                                <span class="field-hint">Kunci API disimpan secara aman dan privat di LocalStorage
-                                    browser Anda.</span>
+                                <span class="field-hint">API Key tersimpan aman secara privat di LocalStorage browser Anda.</span>
                             </div>
 
                             <div class="input-group">
-                                <label for="modal-model-search">Model AI Aktif</label>
+                                <label for="modal-model-search">Pilih Model AI</label>
                                 <div class="model-selector-wrapper">
                                     <div class="model-input-box">
                                         <i data-lucide="sparkles" class="model-input-icon"></i>
                                         <input type="text" id="modal-model-search"
-                                            placeholder="Pilih atau cari model AI..." autocomplete="off">
+                                            placeholder="Cari atau filter model AI..." autocomplete="off">
                                         <i data-lucide="chevron-down" class="dropdown-icon"></i>
                                     </div>
                                     <ul id="modal-model-dropdown" class="dropdown-list hidden"></ul>
@@ -370,24 +369,24 @@
                         <div class="settings-card">
                             <div class="section-title">
                                 <div class="title-with-status">
-                                    <h3>Memori Lintas Percakapan</h3>
-                                    <span class="status-badge-mini" id="memory-count-badge">0 Catatan</span>
+                                    <h3 data-i18n="memory_title">Memori AI (Cross-Chat)</h3>
+                                    <span class="status-badge-mini" id="memory-count-badge">0 Memori</span>
                                 </div>
                             </div>
                             <div class="input-group memory-input-row">
-                                <input type="text" id="input-new-memory" class="modal-input" placeholder="Tambah memori baru (misal: 'Saya software engineer', 'Selalu buatkan file .md')..." />
+                                <input type="text" id="input-new-memory" class="modal-input" placeholder="Tambah memori baru (misal: 'Saya software engineer', 'Selalu buat file .md')..." />
                                 <button type="button" id="btn-add-memory" class="primary-button add-memory-btn">
-                                    <i data-lucide="plus"></i> Tambah
+                                    <i data-lucide="plus"></i> Simpan
                                 </button>
                             </div>
                         </div>
 
                         <div class="settings-card">
                             <div class="section-title">
-                                <h3>Daftar Memori Tersimpan</h3>
+                                <h3>Memori Tersimpan</h3>
                             </div>
                             <div id="memory-list" class="memory-list">
-                                <div class="empty-memory-state">Belum ada memori tersimpan. Tambahkan preferensi di atas agar AI selalu mengingatnya.</div>
+                                <div class="empty-memory-state">Belum ada memori. Tambah preferensi di atas agar AI selalu ingat konteks Anda.</div>
                             </div>
                             <div class="memory-footer-actions">
                                 <button type="button" id="btn-clear-memories" class="danger-button text-sm" style="display: none;">
@@ -430,7 +429,7 @@
         <div id="sel-input-view" class="sel-input-view hidden">
             <div class="sel-input-wrapper">
                 <i data-lucide="sparkles" class="sel-input-icon"></i>
-                <input type="text" id="sel-prompt-input" class="sel-prompt-input" placeholder="Instruksi untuk teks ini... (tekan Enter)" autocomplete="off" />
+                <input type="text" id="sel-prompt-input" class="sel-prompt-input" placeholder="Ketik prompt untuk teks ini... (Enter)" autocomplete="off" />
                 <button id="sel-btn-send" class="sel-input-send-btn" title="Kirim ke AI" aria-label="Kirim">
                     <i data-lucide="arrow-up"></i>
                 </button>

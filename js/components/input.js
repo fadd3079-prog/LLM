@@ -94,9 +94,9 @@ export function initInputUI(onSendMessage, onStopGeneration) {
             btnWebSearch.classList.toggle('active', isWebSearchActive);
             btnWebSearch.setAttribute('aria-pressed', isWebSearchActive ? 'true' : 'false');
             if (isWebSearchActive) {
-                showToast('Riset Web aktif: AI akan menjelajahi internet untuk data terbaru', 'info');
+                showToast('Web Search aktif: AI akan live browsing data terbaru', 'info');
             } else {
-                showToast('Riset Web dinonaktifkan', 'info');
+                showToast('Web Search nonaktif', 'info');
             }
         });
     }
@@ -247,8 +247,8 @@ export function initInputUI(onSendMessage, onStopGeneration) {
             if (isGenerating) {
                 btnSend.disabled = false;
                 btnSend.classList.add('btn-stop');
-                btnSend.title = 'Hentikan respon AI';
-                btnSend.setAttribute('aria-label', 'Hentikan respon AI');
+                btnSend.title = 'Stop respon';
+                btnSend.setAttribute('aria-label', 'Stop respon');
                 btnSend.innerHTML = '<i data-lucide="square"></i>';
             } else {
                 btnSend.classList.remove('btn-stop');

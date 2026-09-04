@@ -48,7 +48,7 @@ export function initModelSelector({ onModelChange }) {
         if (list.length === 0) {
             const emptyLi = document.createElement('li');
             emptyLi.className = 'dropdown-item empty';
-            emptyLi.textContent = 'Tidak ada model yang cocok';
+            emptyLi.textContent = 'Model tidak ditemukan. Coba filter lain';
             emptyLi.style.cssText = 'color: var(--color-mute); cursor: default; justify-content: center; padding: 12px;';
             modelDropdown.appendChild(emptyLi);
             return;

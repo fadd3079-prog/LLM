@@ -28,9 +28,9 @@ export function enhanceCodeBlocks(container) {
                 <span class="code-lang" title="${filename}">${filename}</span>
             </div>
             <div class="code-actions-wrapper">
-                <button class="code-download-btn" aria-label="Unduh File" title="Unduh sebagai ${filename}">
+                <button class="code-download-btn" aria-label="Download File" title="Download ${filename}">
                     <i data-lucide="download"></i>
-                    <span class="copy-label">Unduh File</span>
+                    <span class="copy-label">Download File</span>
                 </button>
                 <button class="code-copy-btn" aria-label="Salin Kode" title="Salin kode">
                     <i data-lucide="copy"></i>
@@ -39,20 +39,20 @@ export function enhanceCodeBlocks(container) {
             </div>
         `;
 
-        // Action: Unduh File
+        // Action: Download File
         const downloadBtn = header.querySelector('.code-download-btn');
         downloadBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             const codeText = code ? (code.innerText || code.textContent || '') : pre.innerText;
             downloadTextAsFile(filename, codeText);
-            showToast(`File ${filename} berhasil diunduh`, 'success');
+            showToast(`File ${filename} berhasil didownload`, 'success');
 
             downloadBtn.classList.add('copied');
             downloadBtn.innerHTML = '<i data-lucide="check"></i><span class="copy-label">Tersimpan!</span>';
             if (typeof lucide !== 'undefined') lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });
             setTimeout(() => {
                 downloadBtn.classList.remove('copied');
-                downloadBtn.innerHTML = '<i data-lucide="download"></i><span class="copy-label">Unduh File</span>';
+                downloadBtn.innerHTML = '<i data-lucide="download"></i><span class="copy-label">Download File</span>';
                 if (typeof lucide !== 'undefined') lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });
             }, 2000);
         });
@@ -136,11 +136,11 @@ export function appendAssistantActions(wrapper, contentElement) {
         }
     });
 
-    // Tombol Unduh Jawaban (.md)
+    // Tombol Download Format (.md)
     const exportBtn = document.createElement('button');
     exportBtn.className = 'icon-button export-icon-btn';
-    exportBtn.setAttribute('aria-label', 'Unduh jawaban sebagai file Markdown');
-    exportBtn.title = 'Unduh jawaban sebagai file Markdown (.md)';
+    exportBtn.setAttribute('aria-label', 'Download (.md)');
+    exportBtn.title = 'Download format Markdown (.md)';
     exportBtn.innerHTML = '<i data-lucide="file-down"></i>';
 
     exportBtn.addEventListener('click', (e) => {
@@ -149,7 +149,7 @@ export function appendAssistantActions(wrapper, contentElement) {
         clone.querySelectorAll('.code-block-header').forEach(h => h.remove());
         const plainText = clone.innerText || clone.textContent || '';
         exportMessageAsFile(plainText, 'md', 'jawaban_ai');
-        showToast('Jawaban berhasil diunduh sebagai file .md', 'success');
+        showToast('File .md berhasil didownload', 'success');
     });
 
     actions.appendChild(copyBtn);
