@@ -114,6 +114,17 @@ function toggleChatVisibility(showMessages) {
     if (!container || !emptyState) return null;
     emptyState.classList.toggle('hidden', showMessages);
     container.classList.toggle('hidden', !showMessages);
+
+    const mainContent = document.getElementById('main-content');
+    if (mainContent) {
+        mainContent.classList.toggle('has-messages', showMessages);
+        mainContent.classList.toggle('is-empty', !showMessages);
+    }
+    const actionPills = document.getElementById('action-pills-row');
+    if (actionPills) {
+        actionPills.classList.toggle('hidden', showMessages);
+    }
+
     return container;
 }
 

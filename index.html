@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/base.css">
@@ -82,7 +82,7 @@
 
         <div id="sidebar-backdrop" class="sidebar-backdrop" aria-hidden="true"></div>
 
-        <main id="main-content" class="app-main main-content main-container">
+        <main id="main-content" class="app-main main-content main-container is-empty">
             <header class="main-header">
                 <div class="header-left">
                     <button id="btn-open-sidebar" class="icon-button" aria-label="Buka Sidebar" title="Buka Sidebar">
@@ -125,6 +125,13 @@
                 </div>
             </header>
 
+            <div id="top-announcement-bar" class="top-announcement-bar">
+                <a href="#" id="banner-announcement-link" class="announcement-link">
+                    <span class="announcement-text">AI Workspace • Autonomous thinking partner with web search & document intelligence</span>
+                    <i data-lucide="arrow-right" class="announcement-arrow"></i>
+                </a>
+            </div>
+
             <div id="drop-overlay" class="drop-overlay hidden" aria-hidden="true">
                 <div class="drop-overlay-box">
                     <div class="drop-icon-wrapper">
@@ -139,35 +146,10 @@
                 <div class="chat-canvas-inner">
 
                     <div id="empty-state" class="empty-state">
-                        <div class="hero-brand">
-                            <img src="assets/logo.svg" alt="AI Workspace Logo" class="hero-logo">
-                        </div>
-                        <h1 class="hero-title">Meet your thinking partner</h1>
+                        <h1 class="hero-title">What can I do for you?</h1>
                         <p class="hero-subtitle">Atur Provider dan API Key di <button
                                 id="btn-open-settings-prompt" class="inline-link-button">Settings</button> untuk
-                            mulai chat</p>
-                        <div class="suggestion-grid">
-                            <button class="suggestion-card"
-                                data-prompt="Tolong buatkan ringkasan eksekutif dari teks berikut. Sajikan dalam format:&#10;1. Ikhtisar Inti (2-3 kalimat)&#10;2. Poin-Poin Utama&#10;3. Action Items / Rekomendasi&#10;&#10;[Tempelkan teks atau dokumen di sini]">
-                                <span class="suggestion-title">Ringkasan Eksekutif</span>
-                                <span class="suggestion-desc">Ekstrak poin kunci & action items dari teks</span>
-                            </button>
-                            <button class="suggestion-card"
-                                data-prompt="Tolong tinjau dan refactor kode berikut agar lebih bersih, efisien, dan mengikuti best practices:&#10;&#10;```&#10;[Tempelkan kode di sini]&#10;```&#10;&#10;Sertakan penjelasan singkat tentang perbaikan yang dilakukan.">
-                                <span class="suggestion-title">Refactor & Optimasi Kode</span>
-                                <span class="suggestion-desc">Tingkatkan efisiensi, struktur, dan clean code</span>
-                            </button>
-                            <button class="suggestion-card"
-                                data-prompt="Bantu saya menyusun draft komunikasi profesional mengenai:&#10;- Topik: [Tuliskan topik utama]&#10;- Audiens: [Klien / Tim / Manajemen]&#10;- Poin Penting: [Poin-poin yang ingin disampaikan]&#10;&#10;Gunakan gaya bahasa formal, lugas, dan terstruktur.">
-                                <span class="suggestion-title">Draft Komunikasi Bisnis</span>
-                                <span class="suggestion-desc">Susun email atau pesan kerja yang persuasif</span>
-                            </button>
-                            <button class="suggestion-card"
-                                data-prompt="Saya sedang menghadapi kendala berikut:&#10;[Jelaskan masalah atau tantangan yang dihadapi]&#10;&#10;Bantu saya menganalisis:&#10;1. Kemungkinan Akar Masalah (Root Cause)&#10;2. Alternatif Solusi & Trade-off&#10;3. Langkah Implementasi yang Direkomendasikan">
-                                <span class="suggestion-title">Analisis Masalah & Solusi</span>
-                                <span class="suggestion-desc">Bedah root cause dan alternatif penyelesaian</span>
-                            </button>
-                        </div>
+                            mulai riset</p>
                     </div>
 
                     <div id="messages-container" class="messages-container hidden"></div>
@@ -184,20 +166,54 @@
                     <div id="image-preview-tray" class="image-preview-tray hidden"
                         aria-label="Pratinjau lampiran gambar"></div>
                     <div class="input-wrapper">
-                        <button id="btn-attach" class="icon-button attach-btn" aria-label="Attach file"
-                            title="Attach file (Gambar, PDF, ZIP, Dokumen, Kode)" data-i18n-title="attach">
-                            <i data-lucide="paperclip"></i>
-                        </button>
-                        <button id="btn-web-search" class="icon-button web-search-btn" aria-label="Web Search"
-                            title="Web Search Aktif (Live browsing internet)" data-i18n-title="web_search_active" aria-pressed="false">
-                            <i data-lucide="globe"></i>
-                        </button>
-                        <input type="file" id="file-input" class="hidden" accept="*" multiple>
-                        <textarea id="chat-input" class="chat-input" placeholder="Tanya apa saja, riset web, atau buat file..." rows="1"
+                        <textarea id="chat-input" class="chat-input" placeholder="Assign a task or ask anything..." rows="1"
                             aria-label="Input pesan" data-i18n-placeholder="placeholder_input"></textarea>
-                        <button id="btn-send" class="icon-button send-btn" aria-label="Kirim" title="Kirim" data-i18n-title="send"
-                            disabled>
-                            <i data-lucide="arrow-up"></i>
+                        <div class="input-bottom-row">
+                            <div class="input-left-tools">
+                                <button id="btn-attach" class="icon-button attach-btn" aria-label="Attach file"
+                                    title="Attach file (PDF, PPTX, Word, Excel, Gambar, Kode)" data-i18n-title="attach">
+                                    <i data-lucide="plus"></i>
+                                </button>
+                                <button id="btn-web-search" class="icon-button web-search-btn" aria-label="Web Search"
+                                    title="Web Search Aktif (Live browsing internet)" data-i18n-title="web_search_active" aria-pressed="false">
+                                    <i data-lucide="globe"></i>
+                                </button>
+                                <input type="file" id="file-input" class="hidden" accept="*" multiple>
+                            </div>
+                            <div class="input-right-tools">
+                                <button id="btn-send" class="icon-button send-btn" aria-label="Kirim" title="Kirim" data-i18n-title="send"
+                                    disabled>
+                                    <i data-lucide="arrow-up"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="action-pills-row" class="action-pills-row">
+                        <button type="button" class="action-pill"
+                            data-prompt="Tolong buatkan ringkasan eksekutif dan draft slide presentasi profesional dari teks/dokumen berikut:&#10;&#10;1. Executive Summary (2-3 kalimat)&#10;2. Key Takeaways & Data Penting&#10;3. Rekomendasi & Action Plan&#10;&#10;[Tempelkan teks atau dokumen di sini]">
+                            <i data-lucide="presentation" class="pill-icon"></i>
+                            <span>Create slides</span>
+                        </button>
+                        <button type="button" class="action-pill"
+                            data-prompt="Lakukan riset web mendalam dan analisis komprehensif mengenai topik berikut:&#10;&#10;[Tuliskan topik riset di sini]&#10;&#10;Sertakan data perbandingan objektif, sumber fakta, dan ringkasan insight strategis."
+                            data-web-search="true">
+                            <i data-lucide="globe" class="pill-icon"></i>
+                            <span>Deep research</span>
+                        </button>
+                        <button type="button" class="action-pill"
+                            data-prompt="Tolong tinjau, refactor, dan optimalkan kode berikut agar bersih, aman, modular, dan efisien:&#10;&#10;```&#10;[Tempelkan kode di sini]&#10;```&#10;&#10;Sertakan penjelasan singkat tentang poin perbaikan yang dilakukan.">
+                            <i data-lucide="code" class="pill-icon"></i>
+                            <span>Build & code</span>
+                        </button>
+                        <button type="button" class="action-pill"
+                            data-prompt="Bantu saya membedah dan mencari solusi masalah berikut:&#10;- Masalah: [Jelaskan masalah secara ringkas]&#10;- Konteks: [Konteks atau kendala yang dihadapi]&#10;&#10;Sajikan analisis akar masalah (root cause) serta opsi alternatif solusi dan trade-off nya.">
+                            <i data-lucide="sparkles" class="pill-icon"></i>
+                            <span>Problem solving</span>
+                        </button>
+                        <button type="button" class="action-pill action-pill-settings" id="btn-pill-settings">
+                            <i data-lucide="sliders-horizontal" class="pill-icon"></i>
+                            <span>Settings</span>
                         </button>
                     </div>
                 </div>

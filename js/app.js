@@ -146,6 +146,10 @@ function startApp() {
     document.getElementById('api-status')?.addEventListener('click', openApiSettings);
     document.getElementById('btn-open-settings')?.addEventListener('click', openApiSettings);
     document.getElementById('btn-open-settings-prompt')?.addEventListener('click', openApiSettings);
+    document.getElementById('banner-announcement-link')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        openApiSettings(e);
+    });
 
     document.getElementById('btn-quick-theme')?.addEventListener('click', () => {
         const nextTheme = state.config.theme === 'dark' ? 'light' : 'dark';
@@ -153,10 +157,33 @@ function startApp() {
         showToast(nextTheme === 'dark' ? 'Dark Mode aktif' : 'Light Mode aktif', 'info');
     });
 
+    document.querySelectorAll('.action-pill').forEach(pill => {
+        pill.addEventListener('click', () => {
+            if (pill.id === 'btn-pill-settings') {
+                openApiSettings();
+                return;
+            }
+            const prompt = pill.dataset.prompt;
+            if (prompt) {
+                setChatInputValue(prompt);
+                focusChatInputIfDesktop();
+                if (pill.dataset.webSearch === 'true') {
+                    const btnWeb = document.getElementById('btn-web-search');
+                    if (btnWeb && !btnWeb.classList.contains('active')) {
+                        btnWeb.click();
+                    }
+                }
+            }
+        });
+    });
+
     document.querySelectorAll('.suggestion-card').forEach(card => {
         card.addEventListener('click', () => {
             const prompt = card.dataset.prompt;
-            if (prompt) setChatInputValue(prompt);
+            if (prompt) {
+                setChatInputValue(prompt);
+                focusChatInputIfDesktop();
+            }
         });
     });
 
