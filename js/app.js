@@ -88,6 +88,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Pastikan semua link (markdown, referensi web, dsb) terbuka di tab baru agar tidak menimpa tab workspace LLM
+    document.addEventListener('click', (e) => {
+        const link = e.target.closest('a');
+        if (!link) return;
+        if (link.hasAttribute('download')) return;
+
+        const href = link.getAttribute('href');
+        if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener noreferrer');
+    }, true);
+
     document.getElementById('btn-settings')?.addEventListener('click', () => modal.open('umum'));
     document.getElementById('btn-open-settings')?.addEventListener('click', () => modal.open('umum'));
     document.getElementById('btn-open-settings-prompt')?.addEventListener('click', () => modal.open('api'));
