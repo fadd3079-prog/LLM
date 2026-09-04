@@ -324,17 +324,44 @@
                                 <label for="modal-provider">Provider API</label>
                                 <div class="select-wrapper">
                                     <select id="modal-provider" class="custom-select">
-                                        <option value="openrouter">OpenRouter (Recommended)</option>
-                                        <option value="nvidia">NVIDIA NIM</option>
+                                        <optgroup label="Cloud Aggregator">
+                                            <option value="openrouter" selected>OpenRouter (Recommended - 300+ Model)</option>
+                                        </optgroup>
+                                        <optgroup label="Major AI Labs">
+                                            <option value="openai">OpenAI (GPT-4o, o1, o3-mini)</option>
+                                            <option value="gemini">Google Gemini (Gemini 2.5, 2.0)</option>
+                                            <option value="anthropic">Anthropic Claude (Claude 3.5 Sonnet)</option>
+                                            <option value="deepseek">DeepSeek (V3, R1 Resmi)</option>
+                                        </optgroup>
+                                        <optgroup label="High-Speed Cloud Inference">
+                                            <option value="groq">Groq (Ultra-Fast LPU)</option>
+                                            <option value="cerebras">Cerebras (Fast Inference)</option>
+                                            <option value="together">Together AI</option>
+                                            <option value="mistral">Mistral AI</option>
+                                            <option value="nvidia">NVIDIA NIM</option>
+                                            <option value="cohere">Cohere</option>
+                                            <option value="perplexity">Perplexity AI (Sonar)</option>
+                                        </optgroup>
+                                        <optgroup label="Local & Custom">
+                                            <option value="ollama">Ollama (Localhost)</option>
+                                            <option value="lmstudio">LM Studio (Localhost)</option>
+                                            <option value="custom">Custom (OpenAI-Compatible)</option>
+                                        </optgroup>
                                     </select>
                                     <i data-lucide="chevron-down" class="select-chevron"></i>
                                 </div>
                             </div>
 
-                            <div class="input-group">
+                            <div class="input-group hidden" id="custom-base-url-group">
+                                <label for="modal-base-url">Base URL</label>
+                                <input type="text" id="modal-base-url" placeholder="https://api.example.com/v1" autocomplete="off" />
+                                <span class="field-hint">Endpoint API yang kompatibel dengan format OpenAI (contoh: http://localhost:11434/v1).</span>
+                            </div>
+
+                            <div class="input-group" id="api-key-input-group">
                                 <div class="label-with-link">
-                                    <label for="modal-api-key">API Key</label>
-                                    <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer"
+                                    <label for="modal-api-key" id="modal-api-key-label">API Key</label>
+                                    <a id="modal-api-key-link" href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer"
                                         class="api-help-link">
                                         Ambil API Key OpenRouter
                                     </a>
@@ -347,7 +374,7 @@
                                         <i data-lucide="eye"></i>
                                     </button>
                                 </div>
-                                <span class="field-hint">API Key tersimpan aman secara privat di LocalStorage browser Anda.</span>
+                                <span class="field-hint" id="modal-api-key-hint">API Key tersimpan aman secara privat di LocalStorage browser Anda.</span>
                             </div>
 
                             <div class="input-group">

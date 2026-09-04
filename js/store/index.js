@@ -47,6 +47,46 @@ export function saveStore() {
     });
 }
 
+export function setProvider(providerId) {
+    if (!state.config.apiKeys) state.config.apiKeys = {};
+    if (!state.config.providerModels) state.config.providerModels = {};
+    if (!state.config.customBaseUrls) state.config.customBaseUrls = {};
+
+    state.config.provider = providerId;
+    state.config.apiKey = state.config.apiKeys[providerId] || '';
+    if (state.config.providerModels[providerId]) {
+        state.selectedModel = state.config.providerModels[providerId];
+    }
+    saveStore();
+}
+
+export function setProviderApiKey(providerId, apiKey) {
+    if (!state.config.apiKeys) state.config.apiKeys = {};
+    state.config.apiKeys[providerId] = apiKey;
+    if (state.config.provider === providerId) {
+        state.config.apiKey = apiKey;
+    }
+    saveStore();
+}
+
+export function setProviderModel(providerId, modelId) {
+    if (!state.config.providerModels) state.config.providerModels = {};
+    state.config.providerModels[providerId] = modelId;
+    if (state.config.provider === providerId) {
+        state.selectedModel = modelId;
+    }
+    saveStore();
+}
+
+export function setProviderBaseUrl(providerId, baseUrl) {
+    if (!state.config.customBaseUrls) state.config.customBaseUrls = {};
+    state.config.customBaseUrls[providerId] = baseUrl;
+    if (state.config.provider === providerId) {
+        state.config.baseUrl = baseUrl;
+    }
+    saveStore();
+}
+
 export function createChat() {
     const newChat = {
         id: 'chat_' + Date.now(),

@@ -1,41 +1,354 @@
 import { parseSSEChunk } from './stream-parser.js';
 
-export async function fetchModels(provider, apiKey) {
-    if (!apiKey) throw new Error('API Key belum diisi');
-
-    const url = 'https://openrouter.ai/api/v1/models';
-    const response = await fetch(url, {
-        headers: {
+export const PROVIDERS_CONFIG = {
+    openrouter: {
+        id: 'openrouter',
+        name: 'OpenRouter (Recommended)',
+        defaultBaseUrl: 'https://openrouter.ai/api/v1',
+        keyUrl: 'https://openrouter.ai/keys',
+        helpText: 'Ambil API Key OpenRouter (300+ Model)',
+        keyPlaceholder: 'sk-or-v1-...',
+        isLocal: false,
+        supportsWebSearch: true,
+        defaultModel: 'google/gemini-2.5-flash',
+        headers: (apiKey) => ({
             'Authorization': `Bearer ${apiKey}`,
             'HTTP-Referer': window.location.href,
             'X-Title': 'AI Workspace'
-        }
-    });
+        })
+    },
+    openai: {
+        id: 'openai',
+        name: 'OpenAI',
+        defaultBaseUrl: 'https://api.openai.com/v1',
+        keyUrl: 'https://platform.openai.com/api-keys',
+        helpText: 'Ambil API Key OpenAI',
+        keyPlaceholder: 'sk-proj-...',
+        isLocal: false,
+        defaultModel: 'gpt-4o',
+        headers: (apiKey) => ({
+            'Authorization': `Bearer ${apiKey}`
+        })
+    },
+    gemini: {
+        id: 'gemini',
+        name: 'Google Gemini',
+        defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+        keyUrl: 'https://aistudio.google.com/app/apikey',
+        helpText: 'Ambil API Key Google AI Studio',
+        keyPlaceholder: 'AIzaSy...',
+        isLocal: false,
+        defaultModel: 'gemini-2.5-flash',
+        headers: (apiKey) => ({
+            'Authorization': `Bearer ${apiKey}`
+        })
+    },
+    anthropic: {
+        id: 'anthropic',
+        name: 'Anthropic Claude',
+        defaultBaseUrl: 'https://api.anthropic.com/v1',
+        keyUrl: 'https://console.anthropic.com/settings/keys',
+        helpText: 'Ambil API Key Anthropic',
+        keyPlaceholder: 'sk-ant-...',
+        isLocal: false,
+        isAnthropicApi: true,
+        defaultModel: 'claude-3-5-sonnet-20241022',
+        headers: (apiKey) => ({
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+        })
+    },
+    groq: {
+        id: 'groq',
+        name: 'Groq (Ultra-Fast LPU)',
+        defaultBaseUrl: 'https://api.groq.com/openai/v1',
+        keyUrl: 'https://console.groq.com/keys',
+        helpText: 'Ambil API Key Groq (Free tier tersedia)',
+        keyPlaceholder: 'gsk_...',
+        isLocal: false,
+        defaultModel: 'llama-3.3-70b-versatile',
+        headers: (apiKey) => ({
+            'Authorization': `Bearer ${apiKey}`
+        })
+    },
+    deepseek: {
+        id: 'deepseek',
+        name: 'DeepSeek',
+        defaultBaseUrl: 'https://api.deepseek.com/v1',
+        keyUrl: 'https://platform.deepseek.com/api_keys',
+        helpText: 'Ambil API Key DeepSeek',
+        keyPlaceholder: 'sk-...',
+        isLocal: false,
+        defaultModel: 'deepseek-chat',
+        headers: (apiKey) => ({
+            'Authorization': `Bearer ${apiKey}`
+        })
+    },
+    mistral: {
+        id: 'mistral',
+        name: 'Mistral AI',
+        defaultBaseUrl: 'https://api.mistral.ai/v1',
+        keyUrl: 'https://console.mistral.ai/api-keys/',
+        helpText: 'Ambil API Key Mistral AI',
+        keyPlaceholder: '...',
+        isLocal: false,
+        defaultModel: 'mistral-large-latest',
+        headers: (apiKey) => ({
+            'Authorization': `Bearer ${apiKey}`
+        })
+    },
+    together: {
+        id: 'together',
+        name: 'Together AI',
+        defaultBaseUrl: 'https://api.together.xyz/v1',
+        keyUrl: 'https://api.together.ai/settings/api-keys',
+        helpText: 'Ambil API Key Together AI',
+        keyPlaceholder: '...',
+        isLocal: false,
+        defaultModel: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+        headers: (apiKey) => ({
+            'Authorization': `Bearer ${apiKey}`
+        })
+    },
+    perplexity: {
+        id: 'perplexity',
+        name: 'Perplexity AI',
+        defaultBaseUrl: 'https://api.perplexity.ai',
+        keyUrl: 'https://www.perplexity.ai/settings/api',
+        helpText: 'Ambil API Key Perplexity',
+        keyPlaceholder: 'pplx-...',
+        isLocal: false,
+        defaultModel: 'sonar',
+        headers: (apiKey) => ({
+            'Authorization': `Bearer ${apiKey}`
+        })
+    },
+    cerebras: {
+        id: 'cerebras',
+        name: 'Cerebras (Fast Inference)',
+        defaultBaseUrl: 'https://api.cerebras.ai/v1',
+        keyUrl: 'https://cloud.cerebras.ai/',
+        helpText: 'Ambil API Key Cerebras',
+        keyPlaceholder: 'csk-...',
+        isLocal: false,
+        defaultModel: 'llama3.3-70b',
+        headers: (apiKey) => ({
+            'Authorization': `Bearer ${apiKey}`
+        })
+    },
+    nvidia: {
+        id: 'nvidia',
+        name: 'NVIDIA NIM',
+        defaultBaseUrl: 'https://integrate.api.nvidia.com/v1',
+        keyUrl: 'https://build.nvidia.com/',
+        helpText: 'Ambil API Key NVIDIA NIM (1000 free credits)',
+        keyPlaceholder: 'nvapi-...',
+        isLocal: false,
+        defaultModel: 'meta/llama-3.3-70b-instruct',
+        headers: (apiKey) => ({
+            'Authorization': `Bearer ${apiKey}`
+        })
+    },
+    cohere: {
+        id: 'cohere',
+        name: 'Cohere',
+        defaultBaseUrl: 'https://api.cohere.com/v2',
+        keyUrl: 'https://dashboard.cohere.com/api-keys',
+        helpText: 'Ambil API Key Cohere',
+        keyPlaceholder: '...',
+        isLocal: false,
+        defaultModel: 'command-r-plus-08-2024',
+        headers: (apiKey) => ({
+            'Authorization': `Bearer ${apiKey}`
+        })
+    },
+    ollama: {
+        id: 'ollama',
+        name: 'Ollama (Localhost)',
+        defaultBaseUrl: 'http://localhost:11434/v1',
+        keyUrl: 'https://ollama.com',
+        helpText: 'Pastikan Ollama berjalan di komputer Anda',
+        keyPlaceholder: 'Tidak diperlukan API Key (opsional)',
+        isLocal: true,
+        defaultModel: 'llama3.2',
+        headers: (apiKey) => (apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {})
+    },
+    lmstudio: {
+        id: 'lmstudio',
+        name: 'LM Studio (Localhost)',
+        defaultBaseUrl: 'http://localhost:1234/v1',
+        keyUrl: 'https://lmstudio.ai',
+        helpText: 'Nyalakan Local Server di LM Studio',
+        keyPlaceholder: 'Tidak diperlukan API Key (opsional)',
+        isLocal: true,
+        defaultModel: 'local-model',
+        headers: (apiKey) => (apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {})
+    },
+    custom: {
+        id: 'custom',
+        name: 'Custom (OpenAI-Compatible)',
+        defaultBaseUrl: 'http://localhost:8000/v1',
+        keyUrl: '',
+        helpText: 'Endpoint kustom kompatibel OpenAI',
+        keyPlaceholder: 'API Key (jika diperlukan)',
+        isCustom: true,
+        defaultModel: 'default',
+        headers: (apiKey) => (apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {})
+    }
+};
 
-    if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.error?.message || `Gagal mengambil model (${response.status})`);
+export async function fetchModels(provider = 'openrouter', apiKey = '', customBaseUrl = '') {
+    const cfg = PROVIDERS_CONFIG[provider] || PROVIDERS_CONFIG.openrouter;
+    if (!cfg.isLocal && !apiKey && !cfg.isCustom) {
+        return null;
     }
 
-    const data = await response.json();
-    return (data.data || []).map(m => ({
-        id: m.id,
-        name: m.name || m.id,
-        description: m.description || '',
-        context_length: m.context_length || 0,
-        pricing: m.pricing || null
-    })).sort((a, b) => a.name.localeCompare(b.name));
+    const baseUrl = (customBaseUrl || cfg.defaultBaseUrl).replace(/\/+$/, '');
+    const url = `${baseUrl}/models`;
+
+    try {
+        const response = await fetch(url, {
+            headers: cfg.headers(apiKey)
+        });
+
+        if (!response.ok) {
+            return null;
+        }
+
+        const data = await response.json();
+        const rawList = data.data || data.models || [];
+        if (!Array.isArray(rawList) || rawList.length === 0) return null;
+
+        return rawList.map(m => {
+            const id = m.id || m.name || m.model || '';
+            const name = m.name || m.id || id;
+            return {
+                id,
+                name: name.replace(/^models\//, ''),
+                description: m.description || '',
+                context_length: m.context_length || m.max_tokens || 0,
+                pricing: m.pricing || null
+            };
+        }).filter(m => Boolean(m.id)).sort((a, b) => a.name.localeCompare(b.name));
+    } catch (e) {
+        console.warn(`Gagal fetch models dari ${provider}:`, e);
+        return null;
+    }
 }
 
 export async function streamChat(messages, provider, apiKey, model, onChunk, onComplete, onError, options = {}) {
-    if (!apiKey) {
-        if (onError) onError('API Key diperlukan untuk mengirim pesan.');
+    const cfg = PROVIDERS_CONFIG[provider] || PROVIDERS_CONFIG.openrouter;
+    if (!cfg.isLocal && !apiKey && !cfg.isCustom) {
+        if (onError) onError(`API Key diperlukan untuk provider ${cfg.name}.`);
         return;
     }
 
-    const url = 'https://openrouter.ai/api/v1/chat/completions';
+    const baseUrl = (options.baseUrl || cfg.defaultBaseUrl).replace(/\/+$/, '');
+
+    // Format request khusus untuk Anthropic Claude Messages API
+    if (cfg.isAnthropicApi) {
+        const url = `${baseUrl}/messages`;
+        let systemPrompt = '';
+        const anthropicMessages = [];
+
+        messages.forEach(m => {
+            if (m.role === 'system') {
+                systemPrompt += (systemPrompt ? '\n\n' : '') + m.content;
+                return;
+            }
+
+            if (m.attachments && m.attachments.length > 0) {
+                const contentBlocks = [];
+                let userText = m.content || '';
+
+                m.attachments.forEach(att => {
+                    if (att.category === 'pdf' || att.type === 'application/pdf') {
+                        userText += `\n\n[Lampiran Dokumen PDF: ${att.name}]\n"""\n${att.textContent || ''}\n"""`;
+                    } else if (att.category === 'zip' || att.type === 'application/zip') {
+                        userText += `\n\n[Lampiran Arsip ZIP: ${att.name}]\n"""\n${att.textContent || ''}\n"""`;
+                    } else if (att.category === 'text' || att.textContent) {
+                        userText += `\n\n[Lampiran Berkas: ${att.name}]\n\`\`\`${att.ext || ''}\n${att.textContent || ''}\n\`\`\``;
+                    }
+                });
+
+                if (userText) {
+                    contentBlocks.push({ type: 'text', text: userText });
+                }
+
+                m.attachments.forEach(att => {
+                    if (att.category === 'image' || att.type?.startsWith('image/')) {
+                        if (att.data && att.data.includes(',')) {
+                            const [meta, base64Data] = att.data.split(',');
+                            const mimeType = meta.match(/:(.*?);/)?.[1] || 'image/jpeg';
+                            contentBlocks.push({
+                                type: 'image',
+                                source: {
+                                    type: 'base64',
+                                    media_type: mimeType,
+                                    data: base64Data
+                                }
+                            });
+                        }
+                    }
+                });
+
+                anthropicMessages.push({
+                    role: m.role === 'user' ? 'user' : 'assistant',
+                    content: contentBlocks.length === 1 && contentBlocks[0].type === 'text' ? contentBlocks[0].text : contentBlocks
+                });
+            } else {
+                anthropicMessages.push({
+                    role: m.role === 'user' ? 'user' : 'assistant',
+                    content: m.content || ''
+                });
+            }
+        });
+
+        const anthropicPayload = {
+            model: model || cfg.defaultModel,
+            messages: anthropicMessages,
+            max_tokens: options.maxTokens ?? 2048,
+            temperature: options.temperature ?? 0.7,
+            stream: true
+        };
+
+        if (systemPrompt) {
+            anthropicPayload.system = systemPrompt;
+        }
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    ...cfg.headers(apiKey),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(anthropicPayload),
+                signal: options.signal
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error?.message || `Error Anthropic: ${response.statusText}`);
+            }
+
+            await readStreamResponse(response, onChunk, onComplete, onError, options);
+            return;
+        } catch (err) {
+            if (err.name === 'AbortError' || options.signal?.aborted) {
+                if (onComplete) onComplete('');
+            } else {
+                if (onError) onError(err.message || 'Terjadi kesalahan saat memproses permintaan Anthropic.');
+            }
+            return;
+        }
+    }
+
+    // Format standar OpenAI-compatible (OpenRouter, OpenAI, Gemini, Groq, DeepSeek, Mistral, Together, Cerebras, NVIDIA, Ollama, LM Studio, Custom)
+    const url = `${baseUrl}/chat/completions`;
     const payload = {
-        model: model || 'google/gemini-2.5-flash',
+        model: model || cfg.defaultModel,
         messages: messages.map(m => {
             if (m.attachments && m.attachments.length > 0) {
                 let userText = m.content || '';
@@ -74,7 +387,7 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
     };
 
     // Dukungan plugin riset web OpenRouter
-    if (options.webSearch) {
+    if (options.webSearch && provider === 'openrouter') {
         payload.plugins = [{ id: 'web' }];
     }
 
@@ -82,10 +395,8 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
         const response = await fetch(url, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
-                'HTTP-Referer': window.location.href,
-                'X-Title': 'AI Workspace'
+                ...cfg.headers(apiKey),
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(payload),
             signal: options.signal
@@ -93,46 +404,57 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
 
         if (!response.ok) {
             const errData = await response.json().catch(() => ({}));
-            throw new Error(errData.error?.message || `Error API: ${response.statusText}`);
+            throw new Error(errData.error?.message || `Error API (${response.status}): ${response.statusText}`);
         }
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder('utf-8');
-        let fullText = '';
-        let accumulatedReasoning = '';
-        let collectedCitations = [];
-        let done = false;
+        await readStreamResponse(response, onChunk, onComplete, onError, options);
+    } catch (err) {
+        if (err.name === 'AbortError' || options.signal?.aborted) {
+            if (onComplete) onComplete('');
+        } else {
+            if (onError) onError(err.message || 'Terjadi kesalahan saat memproses permintaan.');
+        }
+    }
+}
 
-        function buildComposedOutput() {
-            let composed = '';
-            if (accumulatedReasoning) {
-                composed += `<details class="thought-box" open><summary class="thought-summary"><i data-lucide="brain"></i> <span>Thinking</span></summary><div class="thought-body">\n\n${accumulatedReasoning}\n\n</div></details>\n\n`;
-            }
+async function readStreamResponse(response, onChunk, onComplete, onError, options = {}) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let fullText = '';
+    let accumulatedReasoning = '';
+    let collectedCitations = [];
+    let done = false;
 
-            let mainContent = fullText;
-            // Tangani tag <think> jika model (seperti DeepSeek) mengeluarkannya di konten teks biasa
-            if (mainContent.includes('<think>')) {
-                mainContent = mainContent.replace(/<think>([\s\S]*?)(?:<\/think>|$)/g, (match, p1) => {
-                    return `<details class="thought-box" open><summary class="thought-summary"><i data-lucide="brain"></i> <span>Thinking</span></summary><div class="thought-body">\n\n${p1.trim()}\n\n</div></details>\n\n`;
-                });
-            }
-
-            composed += mainContent;
-
-            if (collectedCitations.length > 0) {
-                const citeList = collectedCitations.map(url => {
-                    let domain = url;
-                    try { domain = new URL(url).hostname.replace(/^www\./, ''); } catch(e) {}
-                    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="source-tag"><i data-lucide="external-link"></i> ${domain}</a>`;
-                }).join('');
-                composed += `\n\n<div class="sources-tray"><div class="sources-title"><i data-lucide="globe"></i> Sources</div><div class="sources-list">${citeList}</div></div>`;
-            }
-
-            return composed;
+    function buildComposedOutput() {
+        let composed = '';
+        if (accumulatedReasoning) {
+            composed += `<details class="thought-box" open><summary class="thought-summary"><i data-lucide="brain"></i> <span>Thinking</span></summary><div class="thought-body">\n\n${accumulatedReasoning}\n\n</div></details>\n\n`;
         }
 
+        let mainContent = fullText;
+        // Tangani tag <think> jika model (seperti DeepSeek) mengeluarkannya di konten teks biasa
+        if (mainContent.includes('<think>')) {
+            mainContent = mainContent.replace(/<think>([\s\S]*?)(?:<\/think>|$)/g, (match, p1) => {
+                return `<details class="thought-box" open><summary class="thought-summary"><i data-lucide="brain"></i> <span>Thinking</span></summary><div class="thought-body">\n\n${p1.trim()}\n\n</div></details>\n\n`;
+            });
+        }
+
+        composed += mainContent;
+
+        if (collectedCitations.length > 0) {
+            const citeList = collectedCitations.map(url => {
+                let domain = url;
+                try { domain = new URL(url).hostname.replace(/^www\./, ''); } catch(e) {}
+                return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="source-tag"><i data-lucide="external-link"></i> ${domain}</a>`;
+            }).join('');
+            composed += `\n\n<div class="sources-tray"><div class="sources-title"><i data-lucide="globe"></i> Sources</div><div class="sources-list">${citeList}</div></div>`;
+        }
+
+        return composed;
+    }
+
+    try {
         while (!done) {
-            // Cek jika sinyal abort terpicu selama pembacaan stream
             if (options.signal?.aborted) {
                 break;
             }
@@ -168,11 +490,10 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
         if (onComplete) onComplete(finalOutput);
     } catch (err) {
         if (err.name === 'AbortError' || options.signal?.aborted) {
-            // Penghentian sengaja oleh pengguna
-            const finalOutput = buildComposedOutput ? buildComposedOutput() : (fullText || '');
+            const finalOutput = buildComposedOutput();
             if (onComplete) onComplete(finalOutput);
         } else {
-            if (onError) onError(err.message || 'Terjadi kesalahan saat memproses permintaan.');
+            throw err;
         }
     }
 }

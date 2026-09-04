@@ -10,10 +10,20 @@ export function parseSSEChunk(chunk, onDelta, onDone) {
         if (trimmed.startsWith('data: ')) {
             try {
                 const parsed = JSON.parse(trimmed.slice(6));
+                
+                // Format OpenAI, Gemini, Groq, DeepSeek, Mistral, Together, Cerebras, Ollama, LM Studio
                 const delta = parsed.choices?.[0]?.delta || {};
-                const content = delta.content || '';
-                const reasoning = delta.reasoning || delta.thought || '';
+                let content = delta.content || '';
+                const reasoning = delta.reasoning_content || delta.reasoning || delta.thought || '';
                 const citations = parsed.citations || delta.citations || null;
+
+                // Format Anthropic Messages API (content_block_delta)
+                if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+                    content = parsed.delta.text;
+                }
+                if (parsed.type === 'message_delta' && parsed.delta?.stop_reason) {
+                    if (onDone) onDone();
+                }
 
                 if ((content || reasoning || citations) && onDelta) {
                     onDelta(content, { reasoning, citations });

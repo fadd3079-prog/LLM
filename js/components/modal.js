@@ -1,8 +1,9 @@
-import { state, saveStore, setTheme } from '../store/index.js';
+import { state, saveStore, setTheme, setProvider, setProviderApiKey, setProviderBaseUrl } from '../store/index.js';
 import { showToast } from '../utils/toast.js';
 import { initModelSelector } from './modal-models.js';
 import { getMemories, addMemory, deleteMemory, clearAllMemories } from '../services/memory.js';
 import { getSavedLanguageSetting, setLanguage, applyLanguageToDOM } from '../services/i18n.js';
+import { PROVIDERS_CONFIG } from '../api/provider.js';
 
 export function initModal({ onModelChange, onClearAll }) {
     const modal = document.getElementById('settings-modal');
@@ -11,6 +12,11 @@ export function initModal({ onModelChange, onClearAll }) {
     const tabPanels = document.querySelectorAll('.tab-panel');
 
     const providerSelect = document.getElementById('modal-provider') || document.getElementById('modal-api-provider');
+    const customBaseUrlGroup = document.getElementById('custom-base-url-group');
+    const baseUrlInput = document.getElementById('modal-base-url');
+    const apiKeyLabel = document.getElementById('modal-api-key-label');
+    const apiKeyLink = document.getElementById('modal-api-key-link');
+    const apiKeyHint = document.getElementById('modal-api-key-hint');
     const apiKeyInput = document.getElementById('modal-api-key');
     const btnToggleKey = document.getElementById('btn-modal-toggle-key');
 
@@ -29,8 +35,50 @@ export function initModal({ onModelChange, onClearAll }) {
     const modelSelector = initModelSelector({ onModelChange });
 
     function syncFormFromState() {
-        if (providerSelect) providerSelect.value = state.config.provider || 'openrouter';
-        if (apiKeyInput) apiKeyInput.value = state.config.apiKey || '';
+        const currentProvider = state.config.provider || 'openrouter';
+        const cfg = PROVIDERS_CONFIG[currentProvider] || PROVIDERS_CONFIG.openrouter;
+
+        if (providerSelect) providerSelect.value = currentProvider;
+
+        const currentKey = state.config.apiKeys?.[currentProvider] || (currentProvider === 'openrouter' ? state.config.apiKey : '') || '';
+        if (apiKeyInput) {
+            apiKeyInput.value = currentKey;
+            apiKeyInput.placeholder = cfg.keyPlaceholder || 'sk-...';
+        }
+
+        if (apiKeyLabel) {
+            apiKeyLabel.textContent = cfg.isLocal ? 'API Key (Opsional)' : 'API Key';
+        }
+
+        if (apiKeyLink) {
+            if (cfg.keyUrl) {
+                apiKeyLink.href = cfg.keyUrl;
+                apiKeyLink.textContent = cfg.helpText || 'Ambil API Key';
+                apiKeyLink.style.display = 'inline-flex';
+            } else {
+                apiKeyLink.style.display = 'none';
+            }
+        }
+
+        if (apiKeyHint) {
+            if (cfg.isLocal) {
+                apiKeyHint.textContent = 'Server lokal biasanya tidak membutuhkan API Key. Biarkan kosong jika tidak disetel.';
+            } else {
+                apiKeyHint.textContent = 'API Key tersimpan aman secara privat di LocalStorage browser Anda.';
+            }
+        }
+
+        if (customBaseUrlGroup && baseUrlInput) {
+            const isCustomOrLocal = cfg.isCustom || cfg.isLocal || currentProvider === 'custom';
+            if (isCustomOrLocal) {
+                customBaseUrlGroup.classList.remove('hidden');
+                baseUrlInput.value = state.config.customBaseUrls?.[currentProvider] || cfg.defaultBaseUrl || '';
+                baseUrlInput.placeholder = cfg.defaultBaseUrl || 'https://api.example.com/v1';
+            } else {
+                customBaseUrlGroup.classList.add('hidden');
+            }
+        }
+
         if (systemPromptInput) systemPromptInput.value = state.config.systemPrompt || '';
 
         if (tempInput && tempVal) {
@@ -47,7 +95,10 @@ export function initModal({ onModelChange, onClearAll }) {
 
         if (modalApiStatus) {
             const statusDot = modalStatusBar?.querySelector('.status-dot');
-            if (state.config.apiKey) {
+            if (cfg.isLocal) {
+                modalApiStatus.textContent = 'Mode Lokal';
+                statusDot?.classList.add('connected');
+            } else if (currentKey) {
                 modalApiStatus.textContent = 'Terhubung';
                 statusDot?.classList.add('connected');
             } else {
@@ -162,11 +213,14 @@ export function initModal({ onModelChange, onClearAll }) {
         if (systemPromptInput) {
             state.config.systemPrompt = systemPromptInput.value;
         }
-        if (apiKeyInput) {
-            state.config.apiKey = apiKeyInput.value.trim();
-        }
         if (providerSelect) {
-            state.config.provider = providerSelect.value;
+            setProvider(providerSelect.value);
+        }
+        if (apiKeyInput) {
+            setProviderApiKey(state.config.provider, apiKeyInput.value.trim());
+        }
+        if (baseUrlInput) {
+            setProviderBaseUrl(state.config.provider, baseUrlInput.value.trim());
         }
         saveStore();
     };
@@ -220,12 +274,57 @@ export function initModal({ onModelChange, onClearAll }) {
         });
     }
 
-    if (apiKeyInput) {
-        apiKeyInput.addEventListener('change', async () => {
-            state.config.apiKey = apiKeyInput.value.trim();
-            saveStore();
+    if (providerSelect) {
+        providerSelect.addEventListener('change', async (e) => {
+            const newProvider = e.target.value;
+            setProvider(newProvider);
+            modelSelector.switchProvider(newProvider);
             syncFormFromState();
-            if (state.config.apiKey) {
+            if (onModelChange) {
+                onModelChange(state.selectedModel);
+            }
+        });
+    }
+
+    if (baseUrlInput) {
+        baseUrlInput.addEventListener('input', () => {
+            const val = baseUrlInput.value.trim();
+            setProviderBaseUrl(state.config.provider, val);
+        });
+
+        baseUrlInput.addEventListener('change', async () => {
+            const val = baseUrlInput.value.trim();
+            setProviderBaseUrl(state.config.provider, val);
+            await modelSelector.loadModelCatalog();
+        });
+    }
+
+    if (apiKeyInput) {
+        apiKeyInput.addEventListener('input', () => {
+            const val = apiKeyInput.value.trim();
+            setProviderApiKey(state.config.provider, val);
+            const cfg = PROVIDERS_CONFIG[state.config.provider] || PROVIDERS_CONFIG.openrouter;
+            const statusDot = modalStatusBar?.querySelector('.status-dot');
+            if (modalApiStatus) {
+                if (cfg.isLocal) {
+                    modalApiStatus.textContent = 'Mode Lokal';
+                    statusDot?.classList.add('connected');
+                } else if (val) {
+                    modalApiStatus.textContent = 'Terhubung';
+                    statusDot?.classList.add('connected');
+                } else {
+                    modalApiStatus.textContent = 'Belum Terhubung';
+                    statusDot?.classList.remove('connected');
+                }
+            }
+        });
+
+        apiKeyInput.addEventListener('change', async () => {
+            const val = apiKeyInput.value.trim();
+            setProviderApiKey(state.config.provider, val);
+            syncFormFromState();
+            const cfg = PROVIDERS_CONFIG[state.config.provider] || PROVIDERS_CONFIG.openrouter;
+            if (val || cfg.isLocal) {
                 await modelSelector.loadModelCatalog();
             }
         });
@@ -312,7 +411,9 @@ export function initModal({ onModelChange, onClearAll }) {
                               document.getElementById(`tab-${tabName}`);
             if (targetTab) targetTab.click();
             modal.showModal();
-            if (state.config.apiKey && state.models.length === 0) {
+            const cfg = PROVIDERS_CONFIG[state.config.provider] || PROVIDERS_CONFIG.openrouter;
+            const currentKey = state.config.apiKeys?.[state.config.provider] || (state.config.provider === 'openrouter' ? state.config.apiKey : '') || '';
+            if ((currentKey || cfg.isLocal) && state.models.length === 0) {
                 modelSelector.loadModelCatalog();
             }
         },
