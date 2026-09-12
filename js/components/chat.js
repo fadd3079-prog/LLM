@@ -330,11 +330,12 @@ export function updateStreamingMessage(text) {
     }
 }
 
+let streamFinalized = false;
+
 export function finalizeStreamingMessage() {
     isStreamActive = false;
-    if (!streamAnimationId) {
-        streamAnimationId = requestAnimationFrame(streamRenderLoop);
-    }
+    streamAnimationId = null;
+    streamFinalized = false;
 }
 
 function streamRenderLoop(timestamp) {
@@ -362,7 +363,7 @@ function streamRenderLoop(timestamp) {
         }
 
         streamAnimationId = requestAnimationFrame(streamRenderLoop);
-    } else if (isStreamActive) {
+    } else if (isStreamActive && unconsumed > 0) {
         streamAnimationId = requestAnimationFrame(streamRenderLoop);
     } else {
         finalizeStreamRender(content);
@@ -371,6 +372,8 @@ function streamRenderLoop(timestamp) {
 
 function finalizeStreamRender(content) {
     streamAnimationId = null;
+    if (streamFinalized) return;
+    streamFinalized = true;
     content.removeAttribute('id');
     const wrapper = content.parentElement;
     if (wrapper) {
