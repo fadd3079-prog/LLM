@@ -9,6 +9,7 @@ import { initSelectionToolbar } from './components/selection-toolbar.js';
 import { showToast } from './utils/toast.js';
 import { formatMemoriesForSystemPrompt } from './services/memory.js';
 import { isImageGenerationRequest, extractImagePrompt, getGeneratedImageUrl } from './services/image-generator.js';
+import { isTTSRequest, extractTTSText, generateAndPlayTTS, generateTTS, downloadAudioBuffer } from './services/tts-generator.js';
 import { applyLanguageToDOM } from './services/i18n.js';
 import { getAppKnowledgeSystemPrompt, processAssistantResponseForMemories } from './services/app-knowledge.js';
 import { detectAndParseApiConfig, isPureApiSetupMessage, applyApiConfig, generateConnectionSuccessCard, redactSecretsInText } from './services/api-key-detector.js';
@@ -409,6 +410,56 @@ function startApp() {
             return;
         }
 
+        // Deteksi apakah pengguna meminta Text-to-Speech (TTS)
+        if (isTTSRequest(text) && (!attachments || attachments.length === 0)) {
+            const ttsText = extractTTSText(text);
+            const userMsg = addMessage('user', redactSecretsInText(text), attachments);
+            if (!userMsg) return;
+
+            appendUserMessage(userMsg);
+
+            try {
+                const audioBuffer = await generateTTS(ttsText);
+                
+                // Play audio immediately
+                await generateAndPlayTTS(ttsText);
+                
+                const assistantMarkdown = `🔊 **TTS Generated & Played**\n\n**Teks:** "${ttsText}"\n\n> *Voice ID:* \`05b36da8574341d0803391491850db20\` | *Model:* \`s2.1-pro-free\``;
+
+                const assistantMsg = addMessage('assistant', assistantMarkdown);
+                saveStore();
+                renderMessages(currentChat);
+                showToast('TTS berhasil diputar', 'success');
+
+                // Offer download
+                const downloadBtn = document.createElement('button');
+                downloadBtn.textContent = 'Download Audio';
+                downloadBtn.className = 'ai-image-btn';
+                downloadBtn.onclick = () => downloadAudioBuffer(audioBuffer, `tts_${Date.now()}.mp3`);
+                
+                const lastMsg = document.querySelector('.message-wrapper.assistant:last-child .message-content');
+                if (lastMsg) {
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'ai-image-actions';
+                    actionsDiv.appendChild(downloadBtn);
+                    lastMsg.appendChild(actionsDiv);
+                }
+
+            } catch (err) {
+                const assistantMsg = addMessage('assistant', `**Error TTS:** ${err.message}`);
+                saveStore();
+                renderMessages(currentChat);
+                showToast('Gagal generate TTS', 'error');
+            }
+
+            renderChats({
+                onSelectChat: (id) => { state.currentChatId = id; saveStore(); refreshUI(); },
+                onDeleteChat: (id) => { deleteChat(id); refreshUI(); },
+                onTogglePin: (id) => { togglePinChat(id); refreshUI(); }
+            });
+            return;
+        }
+
         if (!state.config.apiKey && !providerAllowsNoKey(state.config.provider)) {
             modal.open('api');
             showToast('Masukkan API Key terlebih dahulu di Settings', 'error');
@@ -474,6 +525,34 @@ function startApp() {
             saveStore();
             renderMessages(currentChat);
             showToast('Prompt diupdate, gambar AI digenerate...', 'success');
+
+            renderChats({
+                onSelectChat: (id) => { state.currentChatId = id; saveStore(); refreshUI(); },
+                onDeleteChat: (id) => { deleteChat(id); refreshUI(); },
+                onTogglePin: (id) => { togglePinChat(id); refreshUI(); }
+            });
+            return;
+        }
+
+        // Cek jika prompt yang diedit adalah permintaan TTS
+        if (isTTSRequest(newText) && (!editedMsg.attachments || editedMsg.attachments.length === 0)) {
+            const ttsText = extractTTSText(newText);
+            
+            try {
+                await generateAndPlayTTS(ttsText);
+                
+                const assistantMarkdown = `🔊 **TTS Generated & Played**\n\n**Teks:** "${ttsText}"\n\n> *Voice ID:* \`05b36da8574341d0803391491850db20\` | *Model:* \`s2.1-pro-free\``;
+
+                addMessage('assistant', assistantMarkdown);
+                saveStore();
+                renderMessages(currentChat);
+                showToast('TTS berhasil diputar', 'success');
+            } catch (err) {
+                addMessage('assistant', `**Error TTS:** ${err.message}`);
+                saveStore();
+                renderMessages(currentChat);
+                showToast('Gagal generate TTS', 'error');
+            }
 
             renderChats({
                 onSelectChat: (id) => { state.currentChatId = id; saveStore(); refreshUI(); },
