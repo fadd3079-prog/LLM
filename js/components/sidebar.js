@@ -91,7 +91,9 @@ function createChatItem(chat, { onSelectChat, onDeleteChat, onTogglePin }) {
     const pinBtn = document.createElement('button');
     pinBtn.className = `chat-item-btn pin-btn ${chat.pinned ? 'pinned' : ''}`;
     pinBtn.title = chat.pinned ? 'Unpin chat' : 'Pin chat';
-    pinBtn.innerHTML = `<i data-lucide="${chat.pinned ? 'pin-off' : 'pin'}"></i>`;
+    const pinIcon = document.createElement('i');
+    pinIcon.dataset.lucide = chat.pinned ? 'pin-off' : 'pin';
+    pinBtn.appendChild(pinIcon);
     pinBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         onTogglePin(chat.id);
@@ -100,7 +102,9 @@ function createChatItem(chat, { onSelectChat, onDeleteChat, onTogglePin }) {
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'chat-item-btn delete-btn';
     deleteBtn.title = 'Hapus';
-    deleteBtn.innerHTML = '<i data-lucide="trash-2"></i>';
+    const deleteIcon = document.createElement('i');
+    deleteIcon.dataset.lucide = 'trash-2';
+    deleteBtn.appendChild(deleteIcon);
     deleteBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const confirmed = await showConfirmDialog({

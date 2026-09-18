@@ -16,21 +16,41 @@ export function enhanceImages(container) {
 
         const header = document.createElement('div');
         header.className = 'ai-image-header';
-        header.innerHTML = `
-            <div class="ai-image-tag">
-                <i data-lucide="sparkles" class="ai-image-sparkle"></i>
-                <span class="ai-image-title">${img.alt || 'Gambar Dihasilkan AI'}</span>
-            </div>
-            <div class="ai-image-actions">
-                <button class="ai-image-btn btn-dl-img" title="Download Gambar" aria-label="Download Gambar">
-                    <i data-lucide="download"></i>
-                    <span>Download</span>
-                </button>
-                <button class="ai-image-btn btn-view-img" title="Buka Gambar (Full Size)" aria-label="Buka Gambar">
-                    <i data-lucide="external-link"></i>
-                </button>
-            </div>
-        `;
+
+        const imageTag = document.createElement('div');
+        imageTag.className = 'ai-image-tag';
+
+        const sparkleIcon = document.createElement('i');
+        sparkleIcon.dataset.lucide = 'sparkles';
+        sparkleIcon.className = 'ai-image-sparkle';
+
+        const imageTitle = document.createElement('span');
+        imageTitle.className = 'ai-image-title';
+        imageTitle.textContent = img.alt || 'Gambar Dihasilkan AI';
+
+        imageTag.appendChild(sparkleIcon);
+        imageTag.appendChild(imageTitle);
+
+        const imageActions = document.createElement('div');
+        imageActions.className = 'ai-image-actions';
+
+        const dlBtn = document.createElement('button');
+        dlBtn.className = 'ai-image-btn btn-dl-img';
+        dlBtn.title = 'Download Gambar';
+        dlBtn.setAttribute('aria-label', 'Download Gambar');
+        dlBtn.innerHTML = '<i data-lucide="download"></i><span>Download</span>';
+
+        const viewBtn = document.createElement('button');
+        viewBtn.className = 'ai-image-btn btn-view-img';
+        viewBtn.title = 'Buka Gambar (Full Size)';
+        viewBtn.setAttribute('aria-label', 'Buka Gambar');
+        viewBtn.innerHTML = '<i data-lucide="external-link"></i>';
+
+        imageActions.appendChild(dlBtn);
+        imageActions.appendChild(viewBtn);
+
+        header.appendChild(imageTag);
+        header.appendChild(imageActions);
 
         const wrapper = document.createElement('div');
         wrapper.className = 'ai-image-wrapper';

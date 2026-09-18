@@ -16,6 +16,7 @@ const SECRET_PATTERNS = [
     /sk-or-[A-Za-z0-9_\-]{20,}/g,
     /sk-ant-[A-Za-z0-9_\-]{20,}/g,
     /sk-proj-[A-Za-z0-9_\-]{20,}/g,
+    /sk-fish-[A-Za-z0-9_\-]{20,}/g,
     /sk-[A-Za-z0-9_\-]{20,}/g,
     /gsk_[A-Za-z0-9]{20,}/g,
     /AIzaSy[A-Za-z0-9_\-]{20,}/g,
@@ -40,17 +41,17 @@ export function detectAndParseApiConfig(text) {
     let baseUrl = null;
     let model = null;
 
-    // 1. Deteksi Base URL / Invoke URL
-    const urlMatches = [
-        /(?:invoke_url|base_url|baseUrl|endpoint|api_base)\s*[:=]\s*["'](https?:\/\/[^\s"'\`]+)["']/i,
-        /https?:\/\/[a-zA-Z0-9_\-\.:]+(?:\/v1[a-z0-9_\-]*)?(?:\/chat\/completions)?/i
+    // 1. Deteksi Base URL / Invoke URL - ONLY from explicit configuration patterns
+    // Never treat a standalone URL in user text as a config URL
+    const explicitUrlPatterns = [
+        /(?:invoke_url|base_url|baseUrl|endpoint|api_base|api_endpoint)\s*[:=]\s*["'](https?:\/\/[^\s"'\`]+)["']/i,
+        /(?:invoke_url|base_url|baseUrl|endpoint|api_base|api_endpoint)\s*[:=]\s*(https?:\/\/[^\s"'\`]+)/i
     ];
 
-    for (const regex of urlMatches) {
+    for (const regex of explicitUrlPatterns) {
         const match = text.match(regex);
         if (match) {
             let foundUrl = match[1] || match[0];
-            // Bersihkan trailing slash dan endpoint chat/completions
             foundUrl = foundUrl.replace(/\/+$/, '').replace(/\/chat\/completions\/?$/i, '');
             if (foundUrl.startsWith('http')) {
                 baseUrl = foundUrl;
@@ -59,13 +60,13 @@ export function detectAndParseApiConfig(text) {
         }
     }
 
-    // 2. Deteksi Model
-    const modelMatches = [
-        /(?:["']model["']|model)\s*[:=]\s*["']([^"'\r\n\t,]+)["']/i,
-        /(?:pakai\s+model|gunakan\s+model|model\s+aktif|pilih\s+model)\s*[:=]?\s*[`"']?([a-zA-Z0-9_\-\.\/]+)[`"']?/i
+    // 2. Deteksi Model - ONLY from explicit configuration patterns
+    const modelPatterns = [
+        /["']model["']\s*[:=]\s*["']([^"'\r\n\t,]+)["']/i,
+        /model\s*[:=]\s*["']([^"'\r\n\t,]+)["']/i
     ];
 
-    for (const regex of modelMatches) {
+    for (const regex of modelPatterns) {
         const match = text.match(regex);
         if (match && match[1]) {
             const candidate = match[1].trim();
@@ -138,7 +139,16 @@ export function detectAndParseApiConfig(text) {
         }
     }
 
-    // h. Generic Bearer Token atau Header Authorization
+    // h. Fish Audio: sk-fish-...
+    if (!apiKey) {
+        const fishMatch = text.match(/sk-fish-[A-Za-z0-9_\-]{25,}/);
+        if (fishMatch) {
+            apiKey = fishMatch[0];
+            provider = 'fish_audio';
+        }
+    }
+
+    // i. Generic Bearer Token or Header Authorization - ONLY in config context
     if (!apiKey) {
         const authMatch = text.match(/(?:Bearer|Authorization["':\s]+Bearer)\s+([A-Za-z0-9_\-]{20,})/i);
         if (authMatch && authMatch[1]) {
@@ -146,7 +156,7 @@ export function detectAndParseApiConfig(text) {
         }
     }
 
-    // i. Generic API Key format: sk-proj-... atau sk-...
+    // j. Generic API Key format: sk-proj-... or sk-... - ONLY in config context
     if (!apiKey) {
         const skMatch = text.match(/sk-(?:proj-)?[A-Za-z0-9_\-]{25,}/);
         if (skMatch) {
@@ -154,7 +164,7 @@ export function detectAndParseApiConfig(text) {
         }
     }
 
-    // j. API_KEY assignment in env/config: (API_KEY|KEY) = "..."
+    // k. API_KEY assignment in env/config: (API_KEY|KEY) = "..."
     if (!apiKey) {
         const envMatch = text.match(/(?:[A-Z0-9_]*API[_-]?KEY)\s*[:=]\s*["']?([A-Za-z0-9_\-]{20,})["']?/i);
         if (envMatch && envMatch[1]) {
@@ -162,40 +172,37 @@ export function detectAndParseApiConfig(text) {
         }
     }
 
-    // 4. Resolusi Provider jika belum ditentukan dari awalan key
-    if (!provider) {
-        const lowerText = text.toLowerCase();
-        const lowerUrl = (baseUrl || '').toLowerCase();
+    // 4. Resolusi Provider - ONLY from explicit config signals, NOT from casual text mentions
+    if (!provider && baseUrl) {
+        const lowerUrl = baseUrl.toLowerCase();
+        if (lowerUrl.includes('api.nvidia.com')) provider = 'nvidia';
+        else if (lowerUrl.includes('openrouter.ai')) provider = 'openrouter';
+        else if (lowerUrl.includes('groq.com')) provider = 'groq';
+        else if (lowerUrl.includes('deepseek.com')) provider = 'deepseek';
+        else if (lowerUrl.includes('mistral.ai')) provider = 'mistral';
+        else if (lowerUrl.includes('together')) provider = 'together';
+        else if (lowerUrl.includes('perplexity.ai')) provider = 'perplexity';
+        else if (lowerUrl.includes('cerebras.ai')) provider = 'cerebras';
+        else if (lowerUrl.includes('cohere.com')) provider = 'cohere';
+        else if (lowerUrl.includes('11434')) provider = 'ollama';
+        else if (lowerUrl.includes('1234')) provider = 'lmstudio';
+        else if (lowerUrl.includes('openai.com')) provider = 'openai';
+        else if (lowerUrl.includes('fish.audio')) provider = 'fish_audio';
+        else if (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1')) provider = 'custom';
+    }
 
-        if (lowerUrl.includes('api.nvidia.com') || lowerText.includes('nvidia') || apiKey?.startsWith('nvapi-')) {
-            provider = 'nvidia';
-        } else if (lowerUrl.includes('openrouter.ai') || lowerText.includes('openrouter')) {
-            provider = 'openrouter';
-        } else if (lowerUrl.includes('groq.com') || lowerText.includes('groq')) {
-            provider = 'groq';
-        } else if (lowerUrl.includes('deepseek.com') || lowerText.includes('deepseek')) {
-            provider = 'deepseek';
-        } else if (lowerUrl.includes('mistral.ai') || lowerText.includes('mistral')) {
-            provider = 'mistral';
-        } else if (lowerUrl.includes('together') || lowerText.includes('together')) {
-            provider = 'together';
-        } else if (lowerUrl.includes('perplexity.ai') || lowerText.includes('perplexity')) {
-            provider = 'perplexity';
-        } else if (lowerUrl.includes('cerebras.ai') || lowerText.includes('cerebras')) {
-            provider = 'cerebras';
-        } else if (lowerUrl.includes('cohere.com') || lowerText.includes('cohere')) {
-            provider = 'cohere';
-        } else if (lowerUrl.includes('11434') || lowerText.includes('ollama')) {
-            provider = 'ollama';
-        } else if (lowerUrl.includes('1234') || lowerText.includes('lmstudio') || lowerText.includes('lm studio')) {
-            provider = 'lmstudio';
-        } else if (lowerUrl.includes('openai.com') || lowerText.includes('openai')) {
-            provider = 'openai';
-        } else if (baseUrl && (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1') || baseUrl.startsWith('http'))) {
-            provider = 'custom';
-        } else if (apiKey?.startsWith('sk-')) {
-            provider = 'openai';
-        }
+    // Provider fallback from key prefix (deterministic, no text matching)
+    if (!provider && apiKey) {
+        if (apiKey.startsWith('nvapi-')) provider = 'nvidia';
+        else if (apiKey.startsWith('sk-or-')) provider = 'openrouter';
+        else if (apiKey.startsWith('sk-ant-')) provider = 'anthropic';
+        else if (apiKey.startsWith('sk-proj-')) provider = 'openai';
+        else if (apiKey.startsWith('sk-fish-')) provider = 'fish_audio';
+        else if (apiKey.startsWith('gsk_')) provider = 'groq';
+        else if (apiKey.startsWith('AIzaSy')) provider = 'gemini';
+        else if (apiKey.startsWith('pplx-')) provider = 'perplexity';
+        else if (apiKey.startsWith('csk-')) provider = 'cerebras';
+        else if (apiKey.startsWith('sk-')) provider = 'openai';
     }
 
     // Jika tidak ditemukan API Key maupun Localhost BaseUrl, bukan instruksi konfigurasi

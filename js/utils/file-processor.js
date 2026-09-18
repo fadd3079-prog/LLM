@@ -37,6 +37,9 @@ export function validateFile(file) {
     if (file.size > maxSize) {
         return { valid: false, error: `Berkas "${file.name}" terlalu besar (maksimal 50MB).` };
     }
+    if (file.size === 0) {
+        return { valid: false, error: `Berkas "${file.name}" kosong.` };
+    }
     return { valid: true };
 }
 
@@ -51,12 +54,36 @@ export function fileToBase64(file) {
 
 function decodeXmlEntities(str) {
     if (!str) return '';
-    return str
+    let result = str
         .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
         .replace(/&quot;/g, '"')
         .replace(/&apos;/g, "'");
+    
+    // Decode numeric decimal entities: &#123;
+    result = result.replace(/&#(\d+);/g, (match, dec) => {
+        try {
+            const code = parseInt(dec, 10);
+            if (code >= 0 && code <= 0x10FFFF) {
+                return String.fromCodePoint(code);
+            }
+        } catch (e) {}
+        return match;
+    });
+    
+    // Decode numeric hex entities: &#x1F; or &#x1f;
+    result = result.replace(/&#x([0-9a-fA-F]+);/g, (match, hex) => {
+        try {
+            const code = parseInt(hex, 16);
+            if (code >= 0 && code <= 0x10FFFF) {
+                return String.fromCodePoint(code);
+            }
+        } catch (e) {}
+        return match;
+    });
+    
+    return result;
 }
 
 async function extractPptx(file, sizeFormatted) {
@@ -289,11 +316,19 @@ async function extractPdf(file, sizeFormatted) {
         };
     }
 
+    // Resource limits
+    const MAX_PAGES_TEXT = 30;
+    const MAX_PAGES_RENDER = 20;
+    const MAX_RENDER_SCALE = 1.6;
+    const MAX_RENDER_WIDTH = 2000;
+    const MAX_RENDER_HEIGHT = 2800;
+    const MAX_TEXT_CHARS = 500000;
+    const MAX_PAGE_IMAGES = 15;
+
     try {
         window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         const buffer = await file.arrayBuffer();
 
-        // Dukungan font CJK / CID / custom kuliah via cMapUrl & standardFontDataUrl
         const loadingTask = window.pdfjsLib.getDocument({
             data: buffer,
             cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
@@ -303,12 +338,13 @@ async function extractPdf(file, sizeFormatted) {
 
         const pdf = await loadingTask.promise;
         pageCount = pdf.numPages;
-        const maxPages = Math.min(pdf.numPages, 30);
+        const maxPages = Math.min(pdf.numPages, MAX_PAGES_TEXT);
 
         let totalTextChars = 0;
         const pageTextMap = [];
 
         for (let i = 1; i <= maxPages; i++) {
+            if (totalTextChars >= MAX_TEXT_CHARS) break;
             try {
                 const page = await pdf.getPage(i);
                 const tc = await page.getTextContent();
@@ -322,39 +358,47 @@ async function extractPdf(file, sizeFormatted) {
 
         const pagesWithText = pageTextMap.filter(p => p.text && p.text.length > 5);
 
-        // Jika teks digital kosong atau sangat sedikit (scanned document atau slide presentasi gambar),
-        // otomatis render halaman ke canvas gambar beresolusi tinggi agar model AI vision dapat membacanya langsung!
-        // Pembagi menggunakan maxPages, bukan pageCount, agar PDF panjang dengan teks digital
-        // tidak salah diklasifikasikan sebagai scanned.
         const isImageBasedPdf = totalTextChars < 120 || (maxPages > 1 && (totalTextChars / maxPages) < 25);
         if (isImageBasedPdf) {
-            const renderLimit = Math.min(pdf.numPages, 25);
+            const renderLimit = Math.min(pdf.numPages, MAX_PAGES_RENDER);
             for (let i = 1; i <= renderLimit; i++) {
+                if (pageImages.length >= MAX_PAGE_IMAGES) break;
                 try {
                     const page = await pdf.getPage(i);
-                    const viewport = page.getViewport({ scale: 1.6 });
+                    const viewport = page.getViewport({ scale: MAX_RENDER_SCALE });
+                    // Limit canvas dimensions
+                    const clampedWidth = Math.min(viewport.width, MAX_RENDER_WIDTH);
+                    const clampedHeight = Math.min(viewport.height, MAX_RENDER_HEIGHT);
                     const canvas = document.createElement('canvas');
-                    canvas.width = viewport.width;
-                    canvas.height = viewport.height;
+                    canvas.width = clampedWidth;
+                    canvas.height = clampedHeight;
                     const ctx = canvas.getContext('2d');
-                    await page.render({ canvasContext: ctx, viewport }).promise;
+                    // Scale to fit within limits
+                    const scaleX = clampedWidth / viewport.width;
+                    const scaleY = clampedHeight / viewport.height;
+                    const scale = Math.min(scaleX, scaleY);
+                    const scaledViewport = page.getViewport({ scale: MAX_RENDER_SCALE * scale });
+                    await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
                     const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
                     pageImages.push(dataUrl);
+                    // Clean up canvas
+                    canvas.width = 0;
+                    canvas.height = 0;
                 } catch (renderErr) {
                     console.warn(`Gagal merender halaman PDF ${i} ke gambar:`, renderErr);
                 }
             }
 
             textContent = `[Materi Dokumen PDF: ${file.name} (${pageCount} Halaman)]\n` +
-                `Hanya ${renderLimit} halaman pertama yang dapat dirender menjadi gambar beresolusi tinggi pada pesan ini karena keterbatasan teknis. ` +
+                `Hanya ${pageImages.length} halaman pertama yang dapat dirender menjadi gambar beresolusi tinggi pada pesan ini karena keterbatasan teknis. ` +
                 `Baca dan analisis halaman-halaman yang dilampirkan secara visual.\n`;
             if (pagesWithText.length > 0) {
                 textContent += `\nEkstrak Teks Terdeteksi:\n` + pagesWithText.map(p => `--- Halaman ${p.pageNum} ---\n${p.text}`).join('\n\n');
             }
         } else {
             textContent = pagesWithText.map(p => `--- Halaman ${p.pageNum} ---\n${p.text}`).join('\n\n');
-            if (pdf.numPages > 30) {
-                textContent += `\n\n[Catatan: Dokumen memiliki ${pdf.numPages} halaman, 30 halaman pertama diekstrak]\n`;
+            if (pdf.numPages > MAX_PAGES_TEXT) {
+                textContent += `\n\n[Catatan: Dokumen memiliki ${pdf.numPages} halaman, ${MAX_PAGES_TEXT} halaman pertama diekstrak]\n`;
             }
         }
     } catch (e) {
@@ -465,22 +509,38 @@ export async function processFile(file) {
                 const zip = await window.JSZip.loadAsync(file);
                 let tree = `Struktur Berkas Arsip ZIP (${file.name}):\n`;
                 const textEntries = [];
+                let entryCount = 0;
+                const MAX_ENTRIES = 50;
+                const MAX_TEXT_ENTRIES = 15;
+                const MAX_ENTRY_SIZE = 40000;
+                let totalDecompressed = 0;
+                const MAX_TOTAL_DECOMPRESSED = 5 * 1024 * 1024; // 5MB
+
                 zip.forEach((path, entry) => {
-                    if (!entry.dir) {
+                    entryCount++;
+                    if (!entry.dir && entryCount <= MAX_ENTRIES) {
                         tree += `- ${path}\n`;
                         const fext = path.split('.').pop().toLowerCase();
                         const isTextLike = ['txt', 'md', 'json', 'js', 'ts', 'py', 'html', 'css', 'csv', 'yaml', 'yml', 'xml', 'sql', 'sh', 'c', 'cpp', 'rs', 'go', 'php'].includes(fext);
-                        if (isTextLike && textEntries.length < 15) {
+                        if (isTextLike && textEntries.length < MAX_TEXT_ENTRIES) {
                             textEntries.push({ path, entry });
                         }
                     }
                 });
 
+                if (entryCount > MAX_ENTRIES) {
+                    tree += `\n[Catatan: Arsip memiliki ${entryCount} entri, hanya ${MAX_ENTRIES} pertama yang ditampilkan]\n`;
+                }
+
                 for (const item of textEntries) {
                     try {
+                        if (totalDecompressed >= MAX_TOTAL_DECOMPRESSED) break;
                         const str = await item.entry.async('string');
-                        if (str.length < 40000) {
+                        totalDecompressed += str.length;
+                        if (str.length < MAX_ENTRY_SIZE) {
                             tree += `\n--- Berkas: ${item.path} ---\n${str}\n`;
+                        } else {
+                            tree += `\n--- Berkas: ${item.path} --- [Terlalu panjang, ditampilkan ${MAX_ENTRY_SIZE} karakter pertama]\n${str.slice(0, MAX_ENTRY_SIZE)}...\n`;
                         }
                     } catch (e) {}
                 }
@@ -489,7 +549,11 @@ export async function processFile(file) {
                 textContent = `[Arsip ZIP: ${file.name} (${sizeFormatted})]`;
             }
         } catch (e) {
-            textContent = `[Arsip ZIP: ${file.name} - Gagal mengekstrak: ${e.message}]`;
+            if (e.message && e.message.includes('corrupt')) {
+                textContent = `[Arsip ZIP: ${file.name} - Berkas rusak atau corrupt]`;
+            } else {
+                textContent = `[Arsip ZIP: ${file.name} - Gagal mengekstrak: ${e.message}]`;
+            }
         }
 
         return {

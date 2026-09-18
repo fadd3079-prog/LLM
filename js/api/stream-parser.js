@@ -2,87 +2,126 @@ export function createSSEParser() {
     let buffer = '';
     let finished = false;
 
+    function processEvents(onDelta, onDone) {
+        let eventEnd;
+        // Handle both \n\n and \r\n\r\n as event delimiters
+        while ((eventEnd = findEventBoundary(buffer)) !== -1) {
+            const rawEvent = buffer.slice(0, eventEnd);
+            buffer = buffer.slice(eventEnd + getBoundaryLength(buffer, eventEnd));
+            processEvent(rawEvent, onDelta, onDone);
+            if (finished) return;
+        }
+    }
+
+    function findEventBoundary(buf) {
+        // Check for \n\n first (most common)
+        let idx = buf.indexOf('\n\n');
+        if (idx !== -1) return idx;
+        // Check for \r\n\r\n
+        idx = buf.indexOf('\r\n\r\n');
+        if (idx !== -1) return idx;
+        return -1;
+    }
+
+    function getBoundaryLength(buf, eventEnd) {
+        if (buf[eventEnd] === '\r' && buf[eventEnd + 1] === '\n' && buf[eventEnd + 2] === '\r' && buf[eventEnd + 3] === '\n') {
+            return 4;
+        }
+        return 2;
+    }
+
+    function processEvent(rawEvent, onDelta, onDone) {
+        const lines = rawEvent.split(/\r?\n/);
+        const dataLines = [];
+        let eventType = '';
+
+        for (const line of lines) {
+            if (line.startsWith('event:')) {
+                eventType = line.slice(6).trim();
+            } else if (line.startsWith('data:')) {
+                dataLines.push(line.slice(5).trim());
+            } else if (line.startsWith(':')) {
+                // Comment line, ignore
+            }
+        }
+
+        if (dataLines.length === 0) return;
+
+        const payload = dataLines.join('\n');
+        if (!payload) return;
+
+        if (payload === '[DONE]') {
+            finished = true;
+            if (onDone) onDone();
+            return;
+        }
+
+        try {
+            const parsed = JSON.parse(payload);
+
+            // Format OpenAI, Gemini, Groq, DeepSeek, Mistral, Together, Cerebras, Ollama, LM Studio
+            const delta = parsed.choices?.[0]?.delta || {};
+            let content = delta.content || '';
+            const reasoning = delta.reasoning_content || delta.reasoning || delta.thought || '';
+            const citations = parsed.citations || delta.citations || null;
+
+            // Format Anthropic Messages API (content_block_delta)
+            if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+                content = parsed.delta.text;
+            }
+            if (parsed.type === 'message_delta' && parsed.delta?.stop_reason) {
+                if (onDone) onDone();
+            }
+
+            if ((content || reasoning || citations) && onDelta) {
+                onDelta(content, { reasoning, citations });
+            }
+        } catch (e) {
+            // JSON.parse failure: event may be truncated in TCP;
+            // ignore and wait for buffer to be filled from next chunk.
+        }
+    }
+
     return {
         feed(chunk, onDelta, onDone) {
             if (finished) return;
             buffer += chunk;
-            let eventEnd;
-            while ((eventEnd = buffer.indexOf('\n\n')) !== -1) {
-                const rawEvent = buffer.slice(0, eventEnd);
-                buffer = buffer.slice(eventEnd + 2);
-                const lines = rawEvent.split('\n');
-                for (const line of lines) {
-                    const trimmed = line.trim();
-                    if (!trimmed) continue;
-                    if (trimmed === 'data: [DONE]') {
-                        finished = true;
-                        if (onDone) onDone();
-                        return;
-                    }
-                    if (trimmed.startsWith('data:')) {
-                        const payload = trimmed.slice(5).trim();
-                        if (!payload) continue;
-                        try {
-                            const parsed = JSON.parse(payload);
-
-                            // Format OpenAI, Gemini, Groq, DeepSeek, Mistral, Together, Cerebras, Ollama, LM Studio
-                            const delta = parsed.choices?.[0]?.delta || {};
-                            let content = delta.content || '';
-                            const reasoning = delta.reasoning_content || delta.reasoning || delta.thought || '';
-                            const citations = parsed.citations || delta.citations || null;
-
-                            // Format Anthropic Messages API (content_block_delta)
-                            if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-                                content = parsed.delta.text;
-                            }
-                            if (parsed.type === 'message_delta' && parsed.delta?.stop_reason) {
-                                if (onDone) onDone();
-                            }
-
-                            if ((content || reasoning || citations) && onDelta) {
-                                onDelta(content, { reasoning, citations });
-                            }
-                        } catch (e) {
-                            // JSON.parse gagal biasanya karena event terpotong TCP;
-                            // abaikan dan tunggu buffer diisi ulang dari chunk berikutnya.
-                        }
-                    }
-                }
-            }
+            processEvents(onDelta, onDone);
         },
         flush(onDelta, onDone) {
             if (finished) return;
             const remainder = buffer.trim();
             buffer = '';
             if (!remainder) return;
-            const lines = remainder.split('\n');
+            const lines = remainder.split(/\r?\n/);
+            const dataLines = [];
             for (const line of lines) {
-                const trimmed = line.trim();
-                if (!trimmed) continue;
-                if (trimmed === 'data: [DONE]') {
-                    if (onDone) onDone();
+                if (line.startsWith('data:')) {
+                    dataLines.push(line.slice(5).trim());
+                }
+            }
+            if (dataLines.length === 0) return;
+
+            const payload = dataLines.join('\n');
+            if (payload === '[DONE]') {
+                if (onDone) onDone();
+                return;
+            }
+            try {
+                const parsed = JSON.parse(payload);
+                const delta = parsed.choices?.[0]?.delta || {};
+                const content = delta.content || '';
+                const reasoning = delta.reasoning_content || delta.reasoning || delta.thought || '';
+                const citations = parsed.citations || delta.citations || null;
+                if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+                    if (onDelta) onDelta(parsed.delta.text, { reasoning: '', citations: null });
                     return;
                 }
-                if (trimmed.startsWith('data:')) {
-                    const payload = trimmed.slice(5).trim();
-                    if (!payload) continue;
-                    try {
-                        const parsed = JSON.parse(payload);
-                        const delta = parsed.choices?.[0]?.delta || {};
-                        const content = delta.content || '';
-                        const reasoning = delta.reasoning_content || delta.reasoning || delta.thought || '';
-                        const citations = parsed.citations || delta.citations || null;
-                        if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-                            if (onDelta) onDelta(parsed.delta.text, { reasoning: '', citations: null });
-                            continue;
-                        }
-                        if ((content || reasoning || citations) && onDelta) {
-                            onDelta(content, { reasoning, citations });
-                        }
-                    } catch (e) {
-                        // Abaikan sisa yang tidak valid.
-                    }
+                if ((content || reasoning || citations) && onDelta) {
+                    onDelta(content, { reasoning, citations });
                 }
+            } catch (e) {
+                // Ignore invalid remainder.
             }
         },
         reset() {
@@ -92,10 +131,9 @@ export function createSSEParser() {
     };
 }
 
-// Backwards-compat stateless shim. Sangat tidak disarankan untuk streaming nyata
-// karena tidak ada carry-over buffer. Gunakan createSSEParser() untuk transport SSE.
+// Backwards-compat stateless shim.
 export function parseSSEChunk(chunk, onDelta, onDone) {
-    const lines = chunk.split('\n');
+    const lines = chunk.split(/\r?\n/);
     for (const line of lines) {
         const trimmed = line.trim();
         if (!trimmed) continue;
@@ -103,10 +141,11 @@ export function parseSSEChunk(chunk, onDelta, onDone) {
             if (onDone) onDone();
             return;
         }
-        if (trimmed.startsWith('data: ')) {
+        if (trimmed.startsWith('data:')) {
+            const payload = trimmed.slice(5).trim();
+            if (!payload) continue;
             try {
-                const parsed = JSON.parse(trimmed.slice(6));
-
+                const parsed = JSON.parse(payload);
                 const delta = parsed.choices?.[0]?.delta || {};
                 let content = delta.content || '';
                 const reasoning = delta.reasoning_content || delta.reasoning || delta.thought || '';

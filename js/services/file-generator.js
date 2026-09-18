@@ -86,11 +86,13 @@ export function exportMessageAsFile(rawContent, format = 'md', prefix = 'dokumen
         mime = 'text/plain;charset=utf-8';
     } else if (format === 'html') {
         mime = 'text/html;charset=utf-8';
+        // Sanitize prefix for use in HTML title
+        const safePrefix = prefix.replace(/[<>"'&]/g, '');
         rawContent = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
-<title>${prefix}</title>
+<title>${safePrefix}</title>
 <style>
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #1c1917; }
 pre { background: #f4f4f6; padding: 14px; border-radius: 6px; overflow-x: auto; }
@@ -238,12 +240,17 @@ export async function exportMessageAsPDF(contentElement, titlePrefix = 'Laporan_
         throw new Error('Popup diblokir browser. Izinkan pop-up untuk mengekspor dokumen.');
     }
 
+    // Sanitize printContainer content before writing to print window
+    const safeHtml = typeof DOMPurify !== 'undefined'
+        ? DOMPurify.sanitize(printContainer.innerHTML, { ADD_TAGS: ['mark'], ADD_ATTR: ['target', 'rel'] })
+        : printContainer.innerHTML.replace(/<script[\s\S]*?<\/script>/gi, '');
+
     printWindow.document.write(`
         <!DOCTYPE html>
         <html>
         <head>
             <meta charset="utf-8">
-            <title>${filename.replace('.pdf', '')}</title>
+            <title>${filename.replace('.pdf', '').replace(/[<>"'&]/g, '')}</title>
             <style>
                 @page { size: A4; margin: 15mm; }
                 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.65; color: #0f172a; margin: 0; padding: 12px; }
@@ -257,7 +264,7 @@ export async function exportMessageAsPDF(contentElement, titlePrefix = 'Laporan_
             </style>
         </head>
         <body>
-            ${printContainer.innerHTML}
+            ${safeHtml}
             <script>
                 window.onload = function() {
                     window.print();

@@ -1,2 +1,8 @@
 AGENTS.md
 DESIGN.md
+.env
+.env.*
+*.local
+node_modules/
+dist/
+build/

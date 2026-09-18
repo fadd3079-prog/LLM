@@ -9,7 +9,7 @@ import { initSelectionToolbar } from './components/selection-toolbar.js';
 import { showToast } from './utils/toast.js';
 import { formatMemoriesForSystemPrompt } from './services/memory.js';
 import { isImageGenerationRequest, extractImagePrompt, getGeneratedImageUrl } from './services/image-generator.js';
-import { isTTSRequest, extractTTSText, generateAndPlayTTS, generateTTS, downloadAudioBuffer } from './services/tts-generator.js';
+import { isTTSRequest, extractTTSText, generateTTS, playAudioBuffer, downloadAudioBuffer, cancelTTS } from './services/tts-generator.js';
 import { applyLanguageToDOM } from './services/i18n.js';
 import { getAppKnowledgeSystemPrompt, processAssistantResponseForMemories } from './services/app-knowledge.js';
 import { detectAndParseApiConfig, isPureApiSetupMessage, applyApiConfig, generateConnectionSuccessCard, redactSecretsInText } from './services/api-key-detector.js';
@@ -18,6 +18,20 @@ function startApp() {
     initStore();
     initChatScroll();
     applyLanguageToDOM();
+
+    // Listen for storage errors
+    window.addEventListener('storage-error', (e) => {
+        if (e.detail?.message) {
+            showToast(e.detail.message, 'error');
+        }
+    });
+
+    // Listen for storage errors
+    window.addEventListener('storage-error', (e) => {
+        if (e.detail?.message) {
+            showToast(e.detail.message, 'error');
+        }
+    });
 
     if (typeof lucide !== 'undefined') {
         lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });
@@ -73,6 +87,10 @@ function startApp() {
             focusChatInputIfDesktop();
         },
         onSelectChat: (id) => {
+            if (state.isGenerating && state.currentChatId !== id) {
+                handleStopGeneration();
+                showToast('Chat switched, generation stopped', 'info');
+            }
             state.currentChatId = id;
             saveStore();
             refreshUI();
@@ -110,6 +128,7 @@ function startApp() {
             activeAbortController.abort();
             activeAbortController = null;
         }
+        cancelTTS();
         state.isGenerating = false;
         state.activeStream = null;
         saveStore();
@@ -133,7 +152,26 @@ function startApp() {
         if (link.hasAttribute('download')) return;
 
         const href = link.getAttribute('href');
-        if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+        if (!href || href.startsWith('#') || href.startsWith('javascript:')) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
+
+        // Validate URL scheme
+        try {
+            const url = new URL(href, window.location.href);
+            if (!['http:', 'https:', 'mailto:', 'tel:'].includes(url.protocol)) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
+        } catch (err) {
+            // Invalid URL, prevent navigation
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
 
         link.setAttribute('target', '_blank');
         link.setAttribute('rel', 'noopener noreferrer');
@@ -220,7 +258,9 @@ function startApp() {
 
     async function executeStream(chat, assistantMsg, isContinuation = false, streamOptions = {}) {
         const myGenerationId = ++activeGenerationId;
-        const isCurrent = () => myGenerationId === activeGenerationId;
+        const myChatId = chat.id;
+        const myMessageId = assistantMsg.id;
+        const isCurrent = () => myGenerationId === activeGenerationId && state.currentChatId === myChatId;
         state.isGenerating = true;
         chatInputControls.setGenerating(true);
         chatInputControls.enableInput(false);
@@ -419,19 +459,18 @@ function startApp() {
             appendUserMessage(userMsg);
 
             try {
+                // Single generation: generate once, play, then offer download of the same buffer
                 const audioBuffer = await generateTTS(ttsText);
+                await playAudioBuffer(audioBuffer);
                 
-                // Play audio immediately
-                await generateAndPlayTTS(ttsText);
-                
-                const assistantMarkdown = `🔊 **TTS Generated & Played**\n\n**Teks:** "${ttsText}"\n\n> *Voice ID:* \`05b36da8574341d0803391491850db20\` | *Model:* \`s2.1-pro-free\``;
+                const assistantMarkdown = `🔊 **TTS Generated & Played**\n\n**Teks:** "${ttsText}"`;
 
                 const assistantMsg = addMessage('assistant', assistantMarkdown);
                 saveStore();
                 renderMessages(currentChat);
                 showToast('TTS berhasil diputar', 'success');
 
-                // Offer download
+                // Offer download of the SAME audio buffer (no second API call)
                 const downloadBtn = document.createElement('button');
                 downloadBtn.textContent = 'Download Audio';
                 downloadBtn.className = 'ai-image-btn';
@@ -539,9 +578,11 @@ function startApp() {
             const ttsText = extractTTSText(newText);
             
             try {
-                await generateAndPlayTTS(ttsText);
+                // Single generation: generate once, play, offer download of same buffer
+                const audioBuffer = await generateTTS(ttsText);
+                await playAudioBuffer(audioBuffer);
                 
-                const assistantMarkdown = `🔊 **TTS Generated & Played**\n\n**Teks:** "${ttsText}"\n\n> *Voice ID:* \`05b36da8574341d0803391491850db20\` | *Model:* \`s2.1-pro-free\``;
+                const assistantMarkdown = `🔊 **TTS Generated & Played**\n\n**Teks:** "${ttsText}"`;
 
                 addMessage('assistant', assistantMarkdown);
                 saveStore();
@@ -595,19 +636,22 @@ function startApp() {
     focusChatInputIfDesktop();
 
     if (state.activeStream) {
+        // After browser reload, there is no actual network stream to resume.
+        // Mark the incomplete assistant response as interrupted.
         const activeChat = state.chats.find(c => c.id === state.activeStream.chatId);
         if (activeChat) {
             state.currentChatId = activeChat.id;
             const assistantMsg = activeChat.messages.find(m => m.id === state.activeStream.messageId);
-            if (assistantMsg && (state.config.apiKey || providerAllowsNoKey(state.config.provider))) {
-                showToast('Melanjutkan respon AI...', 'info');
-                setTimeout(() => {
-                    executeStream(activeChat, assistantMsg, true);
-                }, 150);
-            } else {
-                state.activeStream = null;
-                saveStore();
+            if (assistantMsg && assistantMsg.role === 'assistant') {
+                // Mark as interrupted - do NOT attempt to resume generation
+                // as the network stream is gone after reload
+                const existingContent = assistantMsg.content || '';
+                if (existingContent && !existingContent.includes('[Terputus]')) {
+                    assistantMsg.content = existingContent + '\n\n**[Terputus]:** Sesi browser di-reload. Silakan kirim ulang jika ingin melanjutkan.';
+                }
             }
+            state.activeStream = null;
+            saveStore();
         } else {
             state.activeStream = null;
             saveStore();

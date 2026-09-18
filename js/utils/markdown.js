@@ -18,7 +18,17 @@ function ensureMarkedConfigured() {
                 actualText = href.text;
             }
 
-            const titleAttr = actualTitle ? ` title="${actualTitle}"` : '';
+            // Block javascript: URLs
+            if (actualHref && /^javascript:/i.test(actualHref.trim())) {
+                actualHref = '#';
+            }
+
+            // Ensure href is safe - only allow http, https, mailto, tel
+            if (actualHref && !/^(https?:\/\/|mailto:|tel:|#)/i.test(actualHref.trim())) {
+                actualHref = '#';
+            }
+
+            const titleAttr = actualTitle ? ` title="${String(actualTitle).replace(/"/g, '&quot;')}"` : '';
             return `<a href="${actualHref || '#'}"${titleAttr} target="_blank" rel="noopener noreferrer">${actualText || actualHref || ''}</a>`;
         };
 
@@ -45,6 +55,21 @@ if (typeof DOMPurify !== 'undefined' && typeof DOMPurify.addHook === 'function')
 export function parseMarkdown(text) {
     if (!text) return '';
     ensureMarkedConfigured();
+
+    // Graceful fallback if marked or DOMPurify failed to load
+    if (typeof marked === 'undefined') {
+        const escaped = String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+        return `<pre>${escaped}</pre>`;
+    }
+
+    if (typeof DOMPurify === 'undefined') {
+        // If DOMPurify not available, at least escape the output
+        const rawHtml = marked.parse(text);
+        return rawHtml;
+    }
 
     // Support ==text== highlight syntax (similar to Obsidian, Bear, and MS Word highlighting)
     const withHighlights = text.replace(/==([^=\r\n]+)==/g, '<mark>$1</mark>');

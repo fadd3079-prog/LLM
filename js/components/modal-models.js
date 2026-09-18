@@ -152,10 +152,18 @@ export function initModelSelector({ onModelChange }) {
             li.className = `dropdown-item ${isActive ? 'active' : ''}`;
             const contextText = m.context_length ? `${Math.round(m.context_length / 1000)}k ctx` : '';
 
-            li.innerHTML = `
-                <span class="model-item-name">${m.name}</span>
-                ${contextText ? `<span class="model-item-tag">${contextText}</span>` : ''}
-            `;
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'model-item-name';
+            nameSpan.textContent = m.name || m.id || 'Unknown';
+
+            li.appendChild(nameSpan);
+
+            if (contextText) {
+                const tagSpan = document.createElement('span');
+                tagSpan.className = 'model-item-tag';
+                tagSpan.textContent = contextText;
+                li.appendChild(tagSpan);
+            }
 
             li.addEventListener('click', (e) => {
                 e.stopPropagation();

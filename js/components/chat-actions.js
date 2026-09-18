@@ -37,54 +37,72 @@ export function enhanceCodeBlocks(container) {
 
         const header = document.createElement('div');
         header.className = 'code-block-header';
-        header.innerHTML = `
-            <div class="code-lang-wrapper">
-                <i data-lucide="file-code" class="code-terminal-icon"></i>
-                <span class="code-lang" title="${filename}">${filename}</span>
-            </div>
-            <div class="code-actions-wrapper">
-                <button class="code-download-btn" aria-label="Download File" title="Download ${filename}">
-                    <i data-lucide="download"></i>
-                    <span class="copy-label">Download File</span>
-                </button>
-                <button class="code-copy-btn" aria-label="Salin Kode" title="Salin kode">
-                    <i data-lucide="copy"></i>
-                    <span class="copy-label">Salin</span>
-                </button>
-            </div>
-        `;
+
+        const codeLangWrapper = document.createElement('div');
+        codeLangWrapper.className = 'code-lang-wrapper';
+
+        const fileIcon = document.createElement('i');
+        fileIcon.dataset.lucide = 'file-code';
+        fileIcon.className = 'code-terminal-icon';
+
+        const codeLang = document.createElement('span');
+        codeLang.className = 'code-lang';
+        codeLang.title = filename;
+        codeLang.textContent = filename;
+
+        codeLangWrapper.appendChild(fileIcon);
+        codeLangWrapper.appendChild(codeLang);
+
+        const codeActionsWrapper = document.createElement('div');
+        codeActionsWrapper.className = 'code-actions-wrapper';
+
+        const downloadBtnEl = document.createElement('button');
+        downloadBtnEl.className = 'code-download-btn';
+        downloadBtnEl.setAttribute('aria-label', 'Download File');
+        downloadBtnEl.title = `Download ${filename}`;
+        downloadBtnEl.innerHTML = '<i data-lucide="download"></i><span class="copy-label">Download File</span>';
+
+        const copyBtnEl = document.createElement('button');
+        copyBtnEl.className = 'code-copy-btn';
+        copyBtnEl.setAttribute('aria-label', 'Salin Kode');
+        copyBtnEl.title = 'Salin kode';
+        copyBtnEl.innerHTML = '<i data-lucide="copy"></i><span class="copy-label">Salin</span>';
+
+        codeActionsWrapper.appendChild(downloadBtnEl);
+        codeActionsWrapper.appendChild(copyBtnEl);
+
+        header.appendChild(codeLangWrapper);
+        header.appendChild(codeActionsWrapper);
 
         // Action: Download File
-        const downloadBtn = header.querySelector('.code-download-btn');
-        downloadBtn.addEventListener('click', (e) => {
+        downloadBtnEl.addEventListener('click', (e) => {
             e.stopPropagation();
             const codeText = code ? (code.innerText || code.textContent || '') : pre.innerText;
             downloadTextAsFile(filename, codeText);
             showToast(`File ${filename} berhasil didownload`, 'success');
 
-            downloadBtn.classList.add('copied');
-            downloadBtn.innerHTML = '<i data-lucide="check"></i><span class="copy-label">Tersimpan!</span>';
+            downloadBtnEl.classList.add('copied');
+            downloadBtnEl.innerHTML = '<i data-lucide="check"></i><span class="copy-label">Tersimpan!</span>';
             if (typeof lucide !== 'undefined') lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });
             setTimeout(() => {
-                downloadBtn.classList.remove('copied');
-                downloadBtn.innerHTML = '<i data-lucide="download"></i><span class="copy-label">Download File</span>';
+                downloadBtnEl.classList.remove('copied');
+                downloadBtnEl.innerHTML = '<i data-lucide="download"></i><span class="copy-label">Download File</span>';
                 if (typeof lucide !== 'undefined') lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });
             }, 2000);
         });
 
         // Action: Salin Kode
-        const copyBtn = header.querySelector('.code-copy-btn');
-        copyBtn.addEventListener('click', async (e) => {
+        copyBtnEl.addEventListener('click', async (e) => {
             e.stopPropagation();
             const codeText = code ? (code.innerText || code.textContent || '') : pre.innerText;
             const success = await copyToClipboard(codeText);
             if (success) {
-                copyBtn.classList.add('copied');
-                copyBtn.innerHTML = '<i data-lucide="check"></i><span class="copy-label">Tersalin!</span>';
+                copyBtnEl.classList.add('copied');
+                copyBtnEl.innerHTML = '<i data-lucide="check"></i><span class="copy-label">Tersalin!</span>';
                 if (typeof lucide !== 'undefined') lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });
                 setTimeout(() => {
-                    copyBtn.classList.remove('copied');
-                    copyBtn.innerHTML = '<i data-lucide="copy"></i><span class="copy-label">Salin</span>';
+                    copyBtnEl.classList.remove('copied');
+                    copyBtnEl.innerHTML = '<i data-lucide="copy"></i><span class="copy-label">Salin</span>';
                     if (typeof lucide !== 'undefined') lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });
                 }, 2000);
             }

@@ -196,6 +196,20 @@ export const PROVIDERS_CONFIG = {
         isCustom: true,
         defaultModel: 'default',
         headers: (apiKey) => (apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {})
+    },
+    fish_audio: {
+        id: 'fish_audio',
+        name: 'Fish Audio (TTS)',
+        defaultBaseUrl: 'https://api.fish.audio/v1',
+        keyUrl: 'https://fish.audio',
+        helpText: 'Ambil API Key Fish Audio',
+        keyPlaceholder: 'sk-fish-...',
+        isLocal: false,
+        isTTS: true,
+        defaultModel: 's2.1-pro-free',
+        headers: (apiKey) => ({
+            'Authorization': `Bearer ${apiKey}`
+        })
     }
 };
 
@@ -430,9 +444,24 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
         max_tokens: options.maxTokens ?? 2048
     };
 
-    // Dukungan plugin riset web OpenRouter
+    // Dukungan riset web OpenRouter via tools parameter (current API)
     if (options.webSearch && provider === 'openrouter') {
-        payload.plugins = [{ id: 'web' }];
+        // OpenRouter web search uses a tool definition
+        if (!payload.tools) payload.tools = [];
+        payload.tools.push({
+            type: 'function',
+            function: {
+                name: 'web_search',
+                description: 'Search the web for current information',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        query: { type: 'string', description: 'Search query' }
+                    },
+                    required: ['query']
+                }
+            }
+        });
     }
 
     try {
