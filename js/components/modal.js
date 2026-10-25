@@ -5,7 +5,6 @@ import { initModelSelector } from './modal-models.js';
 import { getMemories, addMemory, deleteMemory, clearAllMemories } from '../services/memory.js';
 import { getSavedLanguageSetting, setLanguage, applyLanguageToDOM } from '../services/i18n.js';
 import { PROVIDERS_CONFIG } from '../api/provider.js';
-import { detectAndParseApiConfig, applyApiConfig } from '../services/api-key-detector.js';
 
 export function initModal({ onModelChange, onClearAll }) {
     const modal = document.getElementById('settings-modal');
@@ -49,7 +48,7 @@ export function initModal({ onModelChange, onClearAll }) {
         }
 
         if (apiKeyLabel) {
-            apiKeyLabel.textContent = cfg.isLocal ? 'API Key (Opsional)' : 'API Key';
+            apiKeyLabel.textContent = (cfg.isLocal || cfg.isCustom) ? 'API Key (Opsional)' : 'API Key';
         }
 
         if (apiKeyLink) {
@@ -66,12 +65,12 @@ export function initModal({ onModelChange, onClearAll }) {
             if (cfg.isLocal) {
                 apiKeyHint.textContent = 'Server lokal biasanya tidak membutuhkan API Key. Biarkan kosong jika tidak disetel.';
             } else {
-                apiKeyHint.textContent = 'API Key tersimpan aman secara privat di LocalStorage browser Anda.';
+                apiKeyHint.textContent = 'API key disimpan di browser ini dan dikirim ke provider yang Anda pilih. Jangan gunakan perangkat bersama.';
             }
         }
 
         if (customBaseUrlGroup && baseUrlInput) {
-            const isCustomOrLocal = cfg.isCustom || cfg.isLocal || currentProvider === 'custom';
+            const isCustomOrLocal = true;
             if (isCustomOrLocal) {
                 customBaseUrlGroup.classList.remove('hidden');
                 baseUrlInput.value = state.config.customBaseUrls?.[currentProvider] || cfg.defaultBaseUrl || '';
@@ -101,10 +100,10 @@ export function initModal({ onModelChange, onClearAll }) {
                 modalApiStatus.textContent = 'Mode Lokal';
                 statusDot?.classList.add('connected');
             } else if (currentKey) {
-                modalApiStatus.textContent = 'Terhubung';
+                modalApiStatus.textContent = 'Key tersimpan';
                 statusDot?.classList.add('connected');
             } else {
-                modalApiStatus.textContent = 'Belum Terhubung';
+                modalApiStatus.textContent = 'Key belum diisi';
                 statusDot?.classList.remove('connected');
             }
         }
@@ -208,7 +207,8 @@ export function initModal({ onModelChange, onClearAll }) {
         if (!inputNewMemory) return;
         const text = inputNewMemory.value.trim();
         if (!text) return;
-        addMemory(text);
+        const added = addMemory(text);
+        if (!added) { showToast('Catatan tidak disimpan. Periksa duplikasi, batas (100 catatan, 500 karakter per catatan), atau isi catatan.', 'error'); return; }
         inputNewMemory.value = '';
         renderMemoryUI();
         showToast('Memori berhasil disimpan', 'success');
@@ -236,7 +236,7 @@ export function initModal({ onModelChange, onClearAll }) {
                 icon: 'trash-2'
             });
             if (confirmed) {
-                clearAllMemories();
+                if (!clearAllMemories()) { showToast('Gagal menghapus memori dari browser.', 'error'); return; }
                 renderMemoryUI();
                 showToast('Seluruh memori AI berhasil dihapus', 'info');
             }
@@ -247,16 +247,20 @@ export function initModal({ onModelChange, onClearAll }) {
         if (systemPromptInput) {
             state.config.systemPrompt = systemPromptInput.value;
         }
-        if (providerSelect) {
+        if (providerSelect && providerSelect.value !== state.config.provider) {
             setProvider(providerSelect.value);
         }
         if (apiKeyInput) {
             setProviderApiKey(state.config.provider, apiKeyInput.value.trim());
         }
         if (baseUrlInput) {
-            setProviderBaseUrl(state.config.provider, baseUrlInput.value.trim());
+            if (!setProviderBaseUrl(state.config.provider, baseUrlInput.value.trim())) {
+                showToast('Base URL tidak valid; alamat sebelumnya tetap digunakan.', 'error');
+                baseUrlInput.value = state.config.customBaseUrls[state.config.provider] || PROVIDERS_CONFIG[state.config.provider].defaultBaseUrl;
+            }
         }
         saveStore();
+        if (onModelChange) onModelChange(state.selectedModel);
     };
 
     if (btnClose) {
@@ -267,6 +271,7 @@ export function initModal({ onModelChange, onClearAll }) {
     }
 
     modal.addEventListener('click', (e) => {
+        if (e.target !== modal) return;
         const rect = modal.getBoundingClientRect();
         const isInDialog = (
             rect.top <= e.clientY && e.clientY <= rect.top + rect.height &&
@@ -279,6 +284,7 @@ export function initModal({ onModelChange, onClearAll }) {
     });
 
     modal.addEventListener('close', () => {
+        apiKeyInput.type = 'password';
         saveAllFormInputs();
     });
 
@@ -290,6 +296,7 @@ export function initModal({ onModelChange, onClearAll }) {
                 t.setAttribute('aria-selected', 'false');
             });
             tabPanels.forEach(p => p.classList.remove('active'));
+            navTabs.forEach(t => t.tabIndex = t === tab ? 0 : -1);
             tab.classList.add('active');
             tab.setAttribute('aria-selected', 'true');
             const target = document.getElementById(`panel-${tabKey}`);
@@ -297,6 +304,13 @@ export function initModal({ onModelChange, onClearAll }) {
         });
     });
 
+    navTabs.forEach((tab, index) => tab.addEventListener('keydown', e => {
+        if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return;
+        e.preventDefault();
+        const next = e.key === 'Home' ? 0 : e.key === 'End' ? navTabs.length - 1 : (index + (['ArrowRight', 'ArrowDown'].includes(e.key) ? 1 : -1) + navTabs.length) % navTabs.length;
+        navTabs[next].click();
+        navTabs[next].focus();
+    }));
     if (btnToggleKey && apiKeyInput) {
         btnToggleKey.addEventListener('click', () => {
             const isPassword = apiKeyInput.type === 'password';
@@ -321,14 +335,9 @@ export function initModal({ onModelChange, onClearAll }) {
     }
 
     if (baseUrlInput) {
-        baseUrlInput.addEventListener('input', () => {
-            const val = baseUrlInput.value.trim();
-            setProviderBaseUrl(state.config.provider, val);
-        });
-
         baseUrlInput.addEventListener('change', async () => {
             const val = baseUrlInput.value.trim();
-            setProviderBaseUrl(state.config.provider, val);
+            if (!setProviderBaseUrl(state.config.provider, val)) { showToast('Masukkan Base URL HTTP/HTTPS yang valid.', 'error'); return; }
             await modelSelector.loadModelCatalog();
         });
     }
@@ -344,40 +353,19 @@ export function initModal({ onModelChange, onClearAll }) {
                     modalApiStatus.textContent = 'Mode Lokal';
                     statusDot?.classList.add('connected');
                 } else if (val) {
-                    modalApiStatus.textContent = 'Terhubung';
+                    modalApiStatus.textContent = 'Key tersimpan';
                     statusDot?.classList.add('connected');
                 } else {
-                    modalApiStatus.textContent = 'Belum Terhubung';
+                    modalApiStatus.textContent = 'Key belum diisi';
                     statusDot?.classList.remove('connected');
                 }
             }
         });
 
-        const handleApiKeyInput = async () => {
-            const raw = apiKeyInput.value.trim();
-            const detected = detectAndParseApiConfig(raw);
-            if (detected) {
-                applyApiConfig(detected);
-                syncFormFromState();
-                showToast(`Terdeteksi ${detected.providerName} & dikonfigurasikan otomatis!`, 'success');
-                const cfg = PROVIDERS_CONFIG[state.config.provider] || PROVIDERS_CONFIG.openrouter;
-                if (detected.apiKey || cfg.isLocal) {
-                    await modelSelector.loadModelCatalog();
-                }
-                if (onModelChange) onModelChange(state.selectedModel);
-            } else {
-                setProviderApiKey(state.config.provider, raw);
-                syncFormFromState();
-                const cfg = PROVIDERS_CONFIG[state.config.provider] || PROVIDERS_CONFIG.openrouter;
-                if (raw || cfg.isLocal) {
-                    await modelSelector.loadModelCatalog();
-                }
-            }
-        };
-
-        apiKeyInput.addEventListener('change', handleApiKeyInput);
-        apiKeyInput.addEventListener('paste', () => {
-            setTimeout(handleApiKeyInput, 50);
+        apiKeyInput.addEventListener('change', async () => {
+            setProviderApiKey(state.config.provider, apiKeyInput.value.trim());
+            await modelSelector.loadModelCatalog();
+            if (onModelChange) onModelChange(state.selectedModel);
         });
     }
 

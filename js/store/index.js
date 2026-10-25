@@ -1,5 +1,5 @@
 import { loadStateFromStorage, saveStateToStorage, DEFAULT_CONFIG } from './persister.js';
-import { PROVIDERS_CONFIG } from '../api/provider.js';
+import { PROVIDERS_CONFIG, resolveBaseUrl } from '../api/provider.js';
 
 export const state = {
     config: { ...DEFAULT_CONFIG },
@@ -14,30 +14,41 @@ export const state = {
     activeStream: null
 };
 
-export function initStore() {
-    const saved = loadStateFromStorage();
-    if (saved) {
-        if (saved.config) state.config = { ...DEFAULT_CONFIG, ...saved.config };
-        if (saved.chats && Array.isArray(saved.chats)) state.chats = saved.chats;
-        if (saved.currentChatId) state.currentChatId = saved.currentChatId;
-        if (saved.selectedModel) state.selectedModel = saved.selectedModel;
-        if (typeof saved.temperature === 'number') state.temperature = saved.temperature;
-        if (typeof saved.maxTokens === 'number') state.maxTokens = saved.maxTokens;
-        if (saved.activeStream) state.activeStream = saved.activeStream;
+export async function initStore() {
+    const saved = await loadStateFromStorage();
+    state.config = structuredClone(DEFAULT_CONFIG);
+    if (saved && typeof saved === 'object') {
+        const config = saved.config && typeof saved.config === 'object' ? saved.config : {};
+        state.config = { ...state.config, ...config };
+        state.config.provider = Object.hasOwn(PROVIDERS_CONFIG, config.provider) ? config.provider : 'openrouter';
+        for (const key of ['apiKeys', 'providerModels', 'customBaseUrls']) {
+            state.config[key] = Object.fromEntries(Object.entries(config[key] || {}).filter(([id, value]) => Object.hasOwn(PROVIDERS_CONFIG, id) && typeof value === 'string'));
+        }
+        const provider = state.config.provider;
+        if (config.apiKey && !state.config.apiKeys[provider]) state.config.apiKeys[provider] = String(config.apiKey);
+        state.config.apiKey = state.config.apiKeys[provider] || '';
+        // Legacy global baseUrl was frequently left over from another provider.
+        delete state.config.baseUrl;
+        if (!['light', 'dark', 'system'].includes(state.config.theme)) state.config.theme = 'system';
+        if (typeof state.config.systemPrompt !== 'string') state.config.systemPrompt = DEFAULT_CONFIG.systemPrompt;
+        state.chats = Array.isArray(saved.chats) ? saved.chats.filter(c => c && typeof c.id === 'string' && Array.isArray(c.messages)).map(c => ({
+            ...c, title: String(c.title || 'Chat baru'), messages: c.messages.filter(m => m && typeof m.id === 'string' && ['user', 'assistant'].includes(m.role)).map(m => ({ ...m, content: String(m.content || ''), attachments: Array.isArray(m.attachments) ? m.attachments.filter(a => a && typeof a.name === 'string') : [] }))
+        })) : [];
+        state.currentChatId = saved.currentChatId;
+        state.selectedModel = state.config.providerModels[provider] || (typeof saved.selectedModel === 'string' ? saved.selectedModel : PROVIDERS_CONFIG[provider].defaultModel);
+        state.config.providerModels[provider] = state.selectedModel;
+        state.temperature = Number.isFinite(saved.temperature) ? Math.max(0, Math.min(2, saved.temperature)) : DEFAULT_CONFIG.temperature;
+        state.maxTokens = Number.isFinite(saved.maxTokens) ? Math.max(256, Math.min(8192, saved.maxTokens)) : DEFAULT_CONFIG.maxTokens;
+        state.activeStream = saved.activeStream || null;
     }
-
-    if (state.chats.length === 0) {
-        createChat();
-    } else if (!state.currentChatId || !state.chats.find(c => c.id === state.currentChatId)) {
-        state.currentChatId = state.chats[0].id;
-    }
-
+    if (!state.chats.length) createChat();
+    else if (!state.chats.some(c => c.id === state.currentChatId)) state.currentChatId = state.chats[0].id;
     applyTheme(state.config.theme);
     return state;
 }
 
 export function saveStore() {
-    saveStateToStorage({
+    return saveStateToStorage({
         config: state.config,
         chats: state.chats,
         currentChatId: state.currentChatId,
@@ -49,17 +60,11 @@ export function saveStore() {
 }
 
 export function setProvider(providerId) {
-    if (!state.config.apiKeys) state.config.apiKeys = {};
-    if (!state.config.providerModels) state.config.providerModels = {};
-    if (!state.config.customBaseUrls) state.config.customBaseUrls = {};
-
+    if (!Object.hasOwn(PROVIDERS_CONFIG, providerId)) return;
     state.config.provider = providerId;
     state.config.apiKey = state.config.apiKeys[providerId] || '';
-    if (state.config.providerModels[providerId]) {
-        state.selectedModel = state.config.providerModels[providerId];
-    }
-    const cfg = PROVIDERS_CONFIG[providerId];
-    state.config.baseUrl = state.config.customBaseUrls[providerId] || (cfg && cfg.defaultBaseUrl) || state.config.baseUrl;
+    state.selectedModel = state.config.providerModels[providerId] || PROVIDERS_CONFIG[providerId].defaultModel;
+    state.models = [];
     saveStore();
 }
 
@@ -82,17 +87,18 @@ export function setProviderModel(providerId, modelId) {
 }
 
 export function setProviderBaseUrl(providerId, baseUrl) {
-    if (!state.config.customBaseUrls) state.config.customBaseUrls = {};
-    state.config.customBaseUrls[providerId] = baseUrl;
-    if (state.config.provider === providerId) {
-        state.config.baseUrl = baseUrl;
-    }
-    saveStore();
+    try {
+        resolveBaseUrl(providerId, baseUrl);
+        if (baseUrl) state.config.customBaseUrls[providerId] = baseUrl;
+        else delete state.config.customBaseUrls[providerId];
+        saveStore();
+        return true;
+    } catch { return false; }
 }
 
 export function createChat() {
     const newChat = {
-        id: 'chat_' + Date.now(),
+        id: 'chat_' + (globalThis.crypto?.randomUUID?.() || `${Date.now()}_${Math.random().toString(36).slice(2)}`),
         title: 'New Chat',
         messages: [],
         createdAt: Date.now(),

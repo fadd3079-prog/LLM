@@ -1,7 +1,7 @@
 :root {
     --font-sans: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --font-serif: "Newsreader", Georgia, Cambria, "Times New Roman", serif;
-    --font-display: var(--font-serif);
+    --font-display: var(--font-sans);
     --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
 
     --display-xl-size: 44px;
@@ -47,9 +47,9 @@
     --code-size: 13px;
     --code-lh: 1.6;
 
-    --color-canvas: #FAF9F5;
-    --color-canvas-soft: #F2F1EC;
-    --color-canvas-soft-2: #E7E6E0;
+    --color-canvas: #FAFAFA;
+    --color-canvas-soft: #F3F3F3;
+    --color-canvas-soft-2: #E9E9EB;
     --color-surface: #FFFFFF;
     --color-surface-hover: #F8F7F3;
 

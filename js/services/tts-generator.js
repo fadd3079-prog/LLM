@@ -74,7 +74,11 @@ export async function generateTTS(text, options = {}) {
     const voiceId = options.voiceId || DEFAULT_VOICE_ID;
     const format = options.format || 'mp3';
 
-    currentAbortController = new AbortController();
+    const requestController = new AbortController();
+    currentAbortController = requestController;
+    const abort = () => requestController.abort();
+    options.signal?.addEventListener('abort', abort, { once: true });
+    if (options.signal?.aborted) abort();
 
     try {
         const response = await fetch(FISH_TTS_ENDPOINT, {
@@ -88,7 +92,7 @@ export async function generateTTS(text, options = {}) {
                 reference_id: voiceId,
                 format: format,
             }),
-            signal: currentAbortController.signal,
+            signal: requestController.signal,
         });
         
         if (!response.ok) {
@@ -111,7 +115,8 @@ export async function generateTTS(text, options = {}) {
         console.error('Gagal generate TTS:', err);
         throw err;
     } finally {
-        currentAbortController = null;
+        options.signal?.removeEventListener('abort', abort);
+        if (currentAbortController === requestController) currentAbortController = null;
     }
 }
 

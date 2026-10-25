@@ -1,43 +1,67 @@
-# LLM Web Client
+# AI Workspace
 
-Web client chat model-model LLM (OpenRouter & NVIDIA NIM)
+Aplikasi chat BYOK (bring your own key) yang berjalan sebagai situs statis. Tanpa akun, framework, atau proses build untuk menjalankan aplikasi.
 
-## Preview
+## Menjalankan
 
-<img src="assets/llm (4).png" alt="Preview Chat" width="100%">
+Gunakan Node.js 22 atau lebih baru:
 
-<img src="assets/llm (3).png" alt="Preview Markdown & Scroll" width="100%">
+```bash
+npm ci
+npm start
+```
 
-<img src="assets/llm (2).png" alt="Preview Koneksi API & Model" width="100%">
+Buka `http://localhost:8080`. Alternatif tanpa Node: jalankan `python -m http.server 8080` dari direktori proyek. Jangan membuka `index.html` melalui `file://` karena aplikasi menggunakan ES modules.
 
-<img src="assets/llm (1).png" alt="Preview Pengaturan & Personalisasi" width="100%">
+1. Buka **Pengaturan → API & Model**.
+2. Pilih provider. Masukkan API key melalui kolom pengaturan, bukan pesan chat.
+3. Pilih model dari katalog, atau isi **Model ID manual** lalu klik **Gunakan**.
+4. Untuk Ollama/LM Studio, jalankan server lokal dan sesuaikan Base URL. API key bersifat opsional.
+
+Setiap provider menyimpan key, model, dan endpoint secara terpisah. Kolom Base URL/Proxy juga dapat diarahkan ke reverse proxy **milik Anda sendiri** yang meneruskan format API provider tersebut. API key dikirim ke alamat ini; gunakan endpoint yang Anda percayai.
 
 ## Fitur
 
-- **Bebas Pilih Model**: Pake API OpenRouter, bebas gonta-ganti model (Claude 3.5, GPT-4o, Gemini 2.5, DeepSeek R1/V3, Llama 3, dll)
-- **Streaming Halus**: Respon teks streaming lancar, ga bergetar, dan otomatis lanjut kalau browser sempat ke-refresh di tengah jalan
-- **Upload Berbagai File**: Bisa ekstrak dan baca PDF, ZIP, Markdown, file kode, teks biasa, sampai gambar (multimodal)
-- **Tabel & Kode Rapi**: Format tabel ala MS Word yang rapi, plus syntax highlighting kode lengkap dengan tombol copy
-- **Privat di LocalStorage**: Riwayat chat, pengaturan, dan API key tersimpan lokal di browser lu sendiri
-- **Tema & Personalisasi**: Pilihan tema Light, Dark, atau ngikut OS, plus custom system prompt buat ngatur gaya jawab AI
+- Chat streaming dengan OpenAI-compatible APIs serta Anthropic Messages API.
+- Stop, edit prompt dan buat ulang jawaban, pin, hapus, serta pindah percakapan.
+- Model katalog dari provider dan input model ID manual. Daftar awal hanya contoh; ketersediaan model mengikuti provider dan akun.
+- Upload, paste gambar, dan drag-and-drop lampiran. Hapus lampiran berdasarkan ID dan pertahankan draft jika pengiriman ditolak.
+- Pembaca PDF (teks dan raster halaman scan), DOCX, PPTX, XLSX, CSV/TSV, ZIP, gambar PNG/JPEG/WebP/GIF, dan teks/kode.
+- Markdown yang disanitasi, tabel yang dapat digulir, salin, download blok kode, serta ekspor pesan menjadi Markdown atau PDF.
+- Memori yang ditambahkan manual, tema terang/gelap/sistem, dan bahasa Indonesia/Inggris.
+- Audio melalui Fish Audio: pilih provider Fish Audio atau gunakan `/tts teks` dengan key Fish Audio yang sudah tersimpan. Pemutaran dan unduhan memakai hasil generasi yang sama; audio hanya tersedia selama sesi halaman.
 
-1. Clone repo:
-   ```bash
-   git clone https://github.com/fadd3079-prog/LLM.git
-   ```
-2. Jalankan lewat HTTP server (modul ES tidak dapat dilayani via `file://`).
-   Contoh cepat:
-   ```bash
-   # dari folder hasil clone
-   npx serve .
-   # atau
-   python -m http.server 8080
-   ```
-   Lalu buka `http://localhost:8080` (atau port yang ditampilkan server).
+## Batasan yang ditampilkan sesuai kemampuan aplikasi
 
-## Tech Stack
+- Browser mengirim permintaan langsung ke provider. Endpoint harus mengizinkan CORS dari origin situs ini. NVIDIA NIM dan provider lain dapat memerlukan reverse proxy yang Anda kelola; situs GitHub Pages tidak dapat menyediakan backend proxy.
+- Model harus mendukung gambar untuk lampiran visual. Jangan mengirim gambar ke model teks saja.
+- Web search di OpenRouter memakai server tool `openrouter:web_search`. Perplexity menggunakan pencarian bawaan model Sonar. Biaya dan ketersediaannya mengikuti provider; tombol aktivasi khusus OpenRouter dan dinonaktifkan untuk provider lain.
+- Maksimal 8 lampiran per pesan dan 20 MB per berkas. PDF: hingga 30 halaman teks atau 8 halaman scan. XLSX: 3 sheet pertama, 100 baris per sheet, maksimal kolom IV. Arsip: maksimal 2.000 entri / 40 MB ukuran ekstraksi; 50 nama berkas dan 15 berkas teks dibaca. Teks panjang dibatasi menjadi 200.000 karakter.
+- Format Office lama (`.doc`, `.xls`, `.ppt`), ODF, RAR/7z, SVG, dan berkas biner lain ditolak. Konversikan terlebih dahulu ke format yang didukung.
+- Aplikasi tidak menjalankan kode, menghasilkan gambar melalui API chat, atau membuat berkas PowerPoint native. Permintaan gambar diteruskan sebagai chat biasa; aplikasi tidak menampilkan tautan gambar eksternal sebagai keberhasilan generasi.
+- Memuat ulang halaman menghentikan jaringan streaming. Teks parsial dipertahankan dan diberi penanda terputus; permintaan tidak diulang otomatis.
 
-- HTML5
-- Vanilla CSS (custom design system, tanpa Tailwind)
-- Vanilla JavaScript (ES Modules, modular architecture)
-- Library pendukung (via CDN): Lucide Icons, Marked, Highlight.js, PDF.js, JSZip
+## Penyimpanan dan privasi
+
+Riwayat, lampiran, dan konfigurasi disimpan di IndexedDB pada browser yang digunakan. Data lama dari `ai_workspace_data` di localStorage dimigrasikan setelah berhasil disimpan. Tidak ada pemangkasan riwayat otomatis. Jika IndexedDB tidak tersedia, aplikasi mencoba localStorage dan menampilkan kesalahan jika penyimpanan gagal.
+
+API key tetap dapat dibaca oleh JavaScript pada origin yang sama dan bukan brankas terenkripsi. Gunakan perangkat pribadi, jangan memasukkan key ke pesan, dan hapus key melalui pengaturan bila tidak diperlukan. Menghapus seluruh chat tidak menghapus API key atau memori; memori dikelola melalui tabnya sendiri.
+
+Dependensi runtime disertakan di `vendor/` dengan versi terkunci dan lisensi. Tidak ada permintaan CDN saat startup. Pembaca Office/PDF dan ekspor PDF dimuat saat digunakan. API provider dan gambar eksternal di jawaban tetap memerlukan jaringan.
+
+## Verifikasi dan pengembangan
+
+```bash
+npm run check
+npm test
+npx playwright install chromium
+npm run test:e2e
+```
+
+Tes browser memakai respons provider simulasi; tidak mengirim key atau memakai kuota API berbayar. Uji endpoint produksi dengan key sendiri tetap diperlukan untuk memastikan izin akun, model, CORS, dan kuota provider.
+
+Setelah mengubah versi dependensi, jalankan `npm run vendor` dan commit file `vendor/` yang dihasilkan. `scripts/icons.mjs` menghasilkan subset ikon Lucide yang digunakan aplikasi. `package-lock.json` mengunci instalasi untuk pengembangan dan CI.
+
+## GitHub Pages
+
+Publikasikan root branch yang dipilih melalui **Settings → Pages**. Semua path runtime relatif sehingga aplikasi dapat dilayani di `/LLM/` maupun root domain. Berkas `vendor/` sudah disertakan; tidak diperlukan build atau environment variable. Server `npm start` hanya untuk pengembangan dan tidak dibutuhkan GitHub Pages.

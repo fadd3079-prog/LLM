@@ -48,7 +48,7 @@ export function getMemories() {
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed)) return [];
         // Validate each memory on load
-        return parsed.filter(m => m && typeof m.text === 'string' && m.text.length > 0 && m.text.length <= MAX_MEMORY_LENGTH).slice(0, MAX_MEMORIES);
+        return parsed.filter(m => m && typeof m.id === 'string' && typeof m.text === 'string' && m.text.length > 0 && m.text.length <= MAX_MEMORY_LENGTH).slice(0, MAX_MEMORIES);
     } catch (e) {
         console.warn('Gagal membaca memori AI:', e);
         return [];
@@ -80,6 +80,7 @@ export function addMemory(text) {
     
     const memories = getMemories();
     
+    if (memories.length >= MAX_MEMORIES) return null;
     // Prevent duplicates (case-insensitive comparison)
     const isDuplicate = memories.some(m => m.text.toLowerCase() === trimmed.toLowerCase());
     if (isDuplicate) return null;
@@ -90,8 +91,7 @@ export function addMemory(text) {
         createdAt: Date.now()
     };
     memories.unshift(item);
-    saveMemories(memories);
-    return item;
+    return saveMemories(memories) ? item : null;
 }
 
 export function deleteMemory(id) {
@@ -102,7 +102,7 @@ export function deleteMemory(id) {
 }
 
 export function clearAllMemories() {
-    localStorage.removeItem(MEMORY_STORAGE_KEY);
+    try { localStorage.removeItem(MEMORY_STORAGE_KEY); return true; } catch { return false; }
 }
 
 /**

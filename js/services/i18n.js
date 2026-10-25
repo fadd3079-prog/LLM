@@ -7,7 +7,15 @@ const LANG_KEY = 'ai_workspace_lang';
 
 const DICTIONARY = {
     id: {
-        new_chat: 'New Chat',
+        new_chat: 'Chat baru',
+        hero_title: 'Ada yang ingin dikerjakan?',
+        hero_eyebrow: 'RUANG KERJA PRIBADI',
+        hero_subtitle: 'Pilih provider, gunakan API key Anda, dan mulai percakapan.',
+        composer_note: 'API key milik Anda. Riwayat tersimpan di perangkat ini.',
+        summarize: 'Ringkas dokumen',
+        explore: 'Jelajahi ide',
+        review_code: 'Tinjau kode',
+        solve: 'Pecahkan masalah',
         search_models: 'Cari atau filter model AI...',
         placeholder_input: 'Tanya apa saja, riset web, atau buat file...',
         web_search: 'Web Search',
@@ -20,8 +28,8 @@ const DICTIONARY = {
         stop: 'Stop respon',
         send: 'Kirim',
         attach: 'Attach File (Gambar, PDF, ZIP, Kode)',
-        settings: 'Settings',
-        general: 'General',
+        settings: 'Pengaturan',
+        general: 'Umum',
         theme: 'Tema',
         api_model: 'API & Model',
         memory: 'Memori AI',
@@ -53,7 +61,15 @@ const DICTIONARY = {
         prompt_updated_toast: 'Prompt diupdate, AI generate respon baru...'
     },
     en: {
-        new_chat: 'New Chat',
+        new_chat: 'New chat',
+        hero_title: 'What would you like to work on?',
+        hero_eyebrow: 'YOUR PERSONAL WORKSPACE',
+        hero_subtitle: 'Choose a provider, add your API key, and start a conversation.',
+        composer_note: 'Your API key. Your history, saved on this device.',
+        summarize: 'Summarize a document',
+        explore: 'Explore an idea',
+        review_code: 'Review code',
+        solve: 'Solve a problem',
         search_models: 'Search or filter AI models...',
         placeholder_input: 'Ask anything, search the web, or generate files...',
         web_search: 'Web Search',
@@ -101,7 +117,7 @@ const DICTIONARY = {
 };
 
 export function getSavedLanguageSetting() {
-    return localStorage.getItem(LANG_KEY) || 'auto';
+    try { return localStorage.getItem(LANG_KEY) || 'auto'; } catch { return 'auto'; }
 }
 
 export function getCurrentLanguage() {
@@ -115,7 +131,7 @@ export function getCurrentLanguage() {
 
 export function setLanguage(lang) {
     if (lang === 'auto' || lang === 'id' || lang === 'en') {
-        localStorage.setItem(LANG_KEY, lang);
+        try { localStorage.setItem(LANG_KEY, lang); } catch { /* Current view can still update. */ }
         applyLanguageToDOM();
     }
 }

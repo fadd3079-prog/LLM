@@ -213,19 +213,30 @@ export const PROVIDERS_CONFIG = {
     }
 };
 
+export function resolveBaseUrl(provider, override = '') {
+    const cfg = PROVIDERS_CONFIG[provider];
+    if (!cfg) throw new Error('Provider tidak dikenal.');
+    const url = new URL((override || cfg.defaultBaseUrl).trim());
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
+        throw new Error('Base URL harus berupa alamat HTTP/HTTPS tanpa kredensial, query, atau fragmen.');
+    }
+    return url.href.replace(/\/+$/, '').replace(/\/chat\/completions$/i, '');
+}
+
 export async function fetchModels(provider = 'openrouter', apiKey = '', customBaseUrl = '') {
     const cfg = PROVIDERS_CONFIG[provider] || PROVIDERS_CONFIG.openrouter;
     if (!cfg.isLocal && !apiKey && !cfg.isCustom) {
         return null;
     }
 
-    let baseUrl = (customBaseUrl || cfg.defaultBaseUrl).replace(/\/+$/, '');
-    baseUrl = baseUrl.replace(/\/chat\/completions\/?$/i, '');
+    if (cfg.isTTS) return null;
+    const baseUrl = resolveBaseUrl(provider, customBaseUrl);
     const url = `${baseUrl}/models`;
 
     try {
         const response = await fetch(url, {
-            headers: cfg.headers(apiKey)
+            headers: cfg.headers(apiKey),
+            signal: AbortSignal.timeout(12000)
         });
 
         if (!response.ok) {
@@ -237,8 +248,8 @@ export async function fetchModels(provider = 'openrouter', apiKey = '', customBa
         if (!Array.isArray(rawList) || rawList.length === 0) return null;
 
         return rawList.map(m => {
-            const id = m.id || m.name || m.model || '';
-            const name = m.name || m.id || id;
+            const id = String(m.id || m.name || m.model || '');
+            const name = String(m.name || m.id || id);
             return {
                 id,
                 name: name.replace(/^models\//, ''),
@@ -260,7 +271,7 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
         return;
     }
 
-    const baseUrl = (options.baseUrl || cfg.defaultBaseUrl).replace(/\/+$/, '');
+    const baseUrl = resolveBaseUrl(provider, options.baseUrl);
 
     // Format request khusus untuk Anthropic Claude Messages API
     if (cfg.isAnthropicApi) {
@@ -348,7 +359,7 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
             model: model || cfg.defaultModel,
             messages: anthropicMessages,
             max_tokens: options.maxTokens ?? 2048,
-            temperature: options.temperature ?? 0.7,
+            temperature: Math.min(options.temperature ?? 0.7, 1),
             stream: true
         };
 
@@ -444,24 +455,13 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
         max_tokens: options.maxTokens ?? 2048
     };
 
-    // Dukungan riset web OpenRouter via tools parameter (current API)
+    if (provider === 'openai') {
+        payload.max_completion_tokens = payload.max_tokens;
+        delete payload.max_tokens;
+        if (/^(o\d|gpt-[56])/.test(model || cfg.defaultModel)) delete payload.temperature;
+    }
     if (options.webSearch && provider === 'openrouter') {
-        // OpenRouter web search uses a tool definition
-        if (!payload.tools) payload.tools = [];
-        payload.tools.push({
-            type: 'function',
-            function: {
-                name: 'web_search',
-                description: 'Search the web for current information',
-                parameters: {
-                    type: 'object',
-                    properties: {
-                        query: { type: 'string', description: 'Search query' }
-                    },
-                    required: ['query']
-                }
-            }
-        });
+        payload.tools = [{ type: 'openrouter:web_search' }];
     }
 
     try {
@@ -504,6 +504,14 @@ export async function streamChat(messages, provider, apiKey, model, onChunk, onC
 }
 
 async function readStreamResponse(response, onChunk, onComplete, onError, options = {}) {
+    if (response.headers.get('content-type')?.includes('application/json')) {
+        const result = await response.json();
+        if (result.error) throw new Error(result.error.message || 'Permintaan gagal.');
+        const text = result.choices?.[0]?.message?.content || result.content?.filter(b => b.type === 'text').map(b => b.text).join('') || '';
+        onComplete?.(text);
+        return;
+    }
+    if (!response.body) throw new Error('Provider tidak mengirimkan isi respons.');
     const reader = response.body.getReader();
     const decoder = new TextDecoder('utf-8');
     const sse = createSSEParser();
@@ -529,10 +537,11 @@ async function readStreamResponse(response, onChunk, onComplete, onError, option
         composed += mainContent;
 
         if (collectedCitations.length > 0) {
-            const citeList = collectedCitations.map(url => {
+            const escape = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+            const citeList = collectedCitations.filter(value => { try { return ['http:', 'https:'].includes(new URL(value).protocol); } catch { return false; } }).map(url => {
                 let domain = url;
                 try { domain = new URL(url).hostname.replace(/^www\./, ''); } catch(e) {}
-                return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="source-tag"><i data-lucide="external-link"></i> ${domain}</a>`;
+                return `<a href="${escape(url)}" target="_blank" rel="noopener noreferrer" class="source-tag"><i data-lucide="external-link"></i> ${escape(domain)}</a>`;
             }).join('');
             composed += `\n\n<div class="sources-tray"><div class="sources-title"><i data-lucide="globe"></i> Sources</div><div class="sources-list">${citeList}</div></div>`;
         }
@@ -583,6 +592,9 @@ async function readStreamResponse(response, onChunk, onComplete, onError, option
         } else {
             throw err;
         }
+    } finally {
+        await reader.cancel().catch(() => {});
+        reader.releaseLock();
     }
 }
 

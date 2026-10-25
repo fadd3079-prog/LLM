@@ -10,6 +10,8 @@ export function initSidebar({ onSelectChat, onNewChat, onDeleteChat, onTogglePin
 
     const closeSidebarMobile = () => {
         sidebar.classList.remove('open');
+        sidebar.inert = window.innerWidth <= 768;
+        btnOpen?.setAttribute('aria-expanded', 'false');
         backdrop?.classList.remove('active');
     };
 
@@ -26,7 +28,10 @@ export function initSidebar({ onSelectChat, onNewChat, onDeleteChat, onTogglePin
     if (btnOpen) {
         btnOpen.addEventListener('click', () => {
             if (window.innerWidth <= 768) {
+                sidebar.classList.remove('collapsed');
+                sidebar.inert = false;
                 sidebar.classList.add('open');
+                btnOpen.setAttribute('aria-expanded', 'true');
                 backdrop?.classList.add('active');
             } else {
                 sidebar.classList.remove('collapsed');
@@ -43,6 +48,13 @@ export function initSidebar({ onSelectChat, onNewChat, onDeleteChat, onTogglePin
         });
     }
 
+    function syncViewport() {
+        sidebar.classList.remove('collapsed');
+        closeSidebarMobile();
+    }
+    window.matchMedia('(max-width: 768px)').addEventListener('change', syncViewport);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && sidebar.classList.contains('open')) { closeSidebarMobile(); btnOpen.focus(); } });
+    closeSidebarMobile();
     renderChats({ onSelectChat, onDeleteChat, onTogglePin });
 }
 
@@ -77,9 +89,13 @@ export function renderChats({ onSelectChat, onDeleteChat, onTogglePin }) {
 }
 
 function createChatItem(chat, { onSelectChat, onDeleteChat, onTogglePin }) {
-    const item = document.createElement('div');
+    const item = document.createElement('li');
     item.className = `chat-item ${chat.id === state.currentChatId ? 'active' : ''}`;
     item.dataset.id = chat.id;
+    item.tabIndex = 0;
+    item.setAttribute('aria-current', chat.id === state.currentChatId ? 'true' : 'false');
+    item.setAttribute('aria-label', chat.title || 'Chat baru');
+    item.addEventListener('keydown', e => { if (e.target === item && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); item.click(); } });
 
     const title = document.createElement('span');
     title.className = 'chat-title';
@@ -91,6 +107,7 @@ function createChatItem(chat, { onSelectChat, onDeleteChat, onTogglePin }) {
     const pinBtn = document.createElement('button');
     pinBtn.className = `chat-item-btn pin-btn ${chat.pinned ? 'pinned' : ''}`;
     pinBtn.title = chat.pinned ? 'Unpin chat' : 'Pin chat';
+    pinBtn.setAttribute('aria-label', pinBtn.title);
     const pinIcon = document.createElement('i');
     pinIcon.dataset.lucide = chat.pinned ? 'pin-off' : 'pin';
     pinBtn.appendChild(pinIcon);
@@ -102,6 +119,7 @@ function createChatItem(chat, { onSelectChat, onDeleteChat, onTogglePin }) {
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'chat-item-btn delete-btn';
     deleteBtn.title = 'Hapus';
+    deleteBtn.setAttribute('aria-label', 'Hapus chat');
     const deleteIcon = document.createElement('i');
     deleteIcon.dataset.lucide = 'trash-2';
     deleteBtn.appendChild(deleteIcon);

@@ -1,666 +1,255 @@
 import { state, initStore, getCurrentChat, addMessage, editMessageAndTruncate, createChat, deleteChat, togglePinChat, saveStore, setTheme } from './store/index.js';
-import { streamChat, PROVIDERS_CONFIG } from './api/provider.js';
+import { streamChat, PROVIDERS_CONFIG, resolveBaseUrl } from './api/provider.js';
 import { initSidebar, renderChats, updateHeaderModelDisplay } from './components/sidebar.js';
-import { initChatScroll, renderMessages, appendUserMessage, appendStreamingMessage, resumeStreamingMessage, updateStreamingMessage, finalizeStreamingMessage, setEditMessageCallback } from './components/chat.js';
+import { initChatScroll, renderMessages, appendUserMessage, appendStreamingMessage, updateStreamingMessage, finalizeStreamingMessage, setEditMessageCallback } from './components/chat.js';
 import { initInputUI, setChatInputValue } from './components/input.js';
 import { initModal } from './components/modal.js';
 import { initHeaderModelSwitcher } from './components/header-models.js';
 import { initSelectionToolbar } from './components/selection-toolbar.js';
 import { showToast } from './utils/toast.js';
 import { formatMemoriesForSystemPrompt } from './services/memory.js';
-import { isImageGenerationRequest, extractImagePrompt, getGeneratedImageUrl } from './services/image-generator.js';
-import { isTTSRequest, extractTTSText, generateTTS, playAudioBuffer, downloadAudioBuffer, cancelTTS } from './services/tts-generator.js';
+import { isTTSRequest, extractTTSText, generateTTS, cancelTTS } from './services/tts-generator.js';
 import { applyLanguageToDOM } from './services/i18n.js';
 import { getAppKnowledgeSystemPrompt, processAssistantResponseForMemories } from './services/app-knowledge.js';
-import { detectAndParseApiConfig, isPureApiSetupMessage, applyApiConfig, generateConnectionSuccessCard, redactSecretsInText } from './services/api-key-detector.js';
+import { redactSecretsInText } from './services/api-key-detector.js';
 
-function startApp() {
-    initStore();
+async function startApp() {
+    await initStore();
     initChatScroll();
     applyLanguageToDOM();
+    window.addEventListener('storage-error', e => showToast(e.detail.message, 'error'));
+    let generation = 0;
+    let controller = null;
+    let activeMessage = null;
+    let controls;
+    let header;
+    const audioUrls = new Map();
 
-    // Listen for storage errors
-    window.addEventListener('storage-error', (e) => {
-        if (e.detail?.message) {
-            showToast(e.detail.message, 'error');
-        }
-    });
-
-    // Listen for storage errors
-    window.addEventListener('storage-error', (e) => {
-        if (e.detail?.message) {
-            showToast(e.detail.message, 'error');
-        }
-    });
-
-    if (typeof lucide !== 'undefined') {
-        lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });
+    function stopGeneration() {
+        if (!state.isGenerating) return;
+        generation++;
+        controller?.abort();
+        cancelTTS();
+        controller = null;
+        state.isGenerating = false;
+        state.activeStream = null;
+        if (activeMessage && !activeMessage.content) activeMessage.content = '*Respons dihentikan.*';
+        finalizeStreamingMessage(activeMessage?.content);
+        activeMessage = null;
+        controls?.setGenerating(false);
+        controls?.enableInput(true);
+        saveStore();
     }
 
-    let activeAbortController = null;
-    let activeGenerationId = 0;
-    let chatInputControls = null;
-
-    const isMobileDevice = () => {
-        if (window.innerWidth <= 768) return true;
-        if (window.matchMedia('(pointer: coarse) and not (pointer: fine)').matches) return true;
-        return false;
-    };
-
-    const focusChatInputIfDesktop = () => {
-        if (!isMobileDevice() && chatInputControls && typeof chatInputControls.focus === 'function') {
-            setTimeout(() => {
-                chatInputControls.focus();
-            }, 0);
-        }
-    };
-
-    let headerModelSwitcher = null;
-
-    const modal = initModal({
-        onModelChange: () => {
-            updateHeaderModelDisplay();
-            headerModelSwitcher?.updateDisplay();
-        },
-        onClearAll: () => {
-            state.chats = [];
-            createChat();
-            refreshUI();
-            focusChatInputIfDesktop();
-        }
-    });
-
-    headerModelSwitcher = initHeaderModelSwitcher({
-        onModelChange: () => {
-            updateHeaderModelDisplay();
-            refreshUI();
-        },
-        onOpenFullSettings: () => {
-            modal.open('api');
-        }
-    });
-
-    const sidebar = initSidebar({
-        onNewChat: () => {
-            createChat();
-            refreshUI();
-            focusChatInputIfDesktop();
-        },
-        onSelectChat: (id) => {
-            if (state.isGenerating && state.currentChatId !== id) {
-                handleStopGeneration();
-                showToast('Chat switched, generation stopped', 'info');
-            }
+    const chatActions = {
+        onSelectChat(id) {
+            if (id === state.currentChatId) return;
+            stopGeneration();
+            controls.clearInput();
             state.currentChatId = id;
             saveStore();
             refreshUI();
         },
-        onDeleteChat: (id) => {
+        onNewChat() {
+            stopGeneration();
+            controls.clearInput();
+            if (getCurrentChat()?.messages.length) createChat();
+            refreshUI();
+            if (window.innerWidth > 768) controls.focus();
+        },
+        onDeleteChat(id) {
+            if (id === state.currentChatId) { stopGeneration(); controls.clearInput(); }
+            const deleted = state.chats.find(c => c.id === id);
+            deleted?.messages.forEach(m => { if (audioUrls.has(m.id)) { URL.revokeObjectURL(audioUrls.get(m.id)); audioUrls.delete(m.id); } });
             deleteChat(id);
-            refreshUI();
+            if (state.isGenerating) renderChats(chatActions);
+            else refreshUI();
         },
-        onPinChat: (id) => {
-            togglePinChat(id);
+        onTogglePin(id) { togglePinChat(id); renderChats(chatActions); }
+    };
+    const modal = initModal({
+        onModelChange() { updateStatus(); header?.refresh(); },
+        onClearAll() {
+            stopGeneration();
+            controls.clearInput();
+            audioUrls.forEach(url => URL.revokeObjectURL(url));
+            audioUrls.clear();
+            state.chats = [];
+            createChat();
             refreshUI();
         }
     });
-
-    chatInputControls = initInputUI(
-        (text, attachments, options, meta) => {
-            handleSendMessage(text, attachments, options, meta);
-        },
-        () => {
-            handleStopGeneration();
-        }
-    );
-
-    initSelectionToolbar((promptText) => {
-        handleSendMessage(promptText, []);
+    header = initHeaderModelSwitcher({
+        onModelChange: () => updateStatus(),
+        onOpenFullSettings: () => modal.open('api')
     });
+    initSidebar(chatActions);
+    controls = initInputUI(handleSendMessage, stopGeneration);
+    initSelectionToolbar(prompt => { if (canSend(prompt, [])) handleSendMessage(prompt, []); });
+    setEditMessageCallback(handleEditUserMessage);
 
-    setEditMessageCallback((messageId, newText) => {
-        handleEditUserMessage(messageId, newText);
-    });
-
-    function handleStopGeneration() {
-        activeGenerationId++;
-        if (activeAbortController) {
-            activeAbortController.abort();
-            activeAbortController = null;
+    function updateStatus() {
+        updateHeaderModelDisplay();
+        const cfg = PROVIDERS_CONFIG[state.config.provider];
+        const ready = Boolean(state.config.apiKey || cfg?.isLocal || cfg?.isCustom);
+        const status = document.getElementById('api-status');
+        status.textContent = ready ? (cfg.isLocal ? 'Mode lokal' : 'Siap digunakan') : 'Atur koneksi API';
+        status.classList.toggle('connected', ready);
+        controls?.setWebSearchAvailable(Boolean(cfg?.supportsWebSearch));
+    }
+    function refreshUI() {
+        renderMessages(getCurrentChat());
+        mountAudio();
+        renderChats(chatActions);
+        updateStatus();
+        header?.refresh();
+        window.lucide?.createIcons();
+    }
+    function mountAudio() {
+        const messages = getCurrentChat()?.messages || [];
+        document.querySelectorAll('.message-wrapper').forEach((wrapper, i) => {
+            const msg = messages[i];
+            if (!msg?.audio || !audioUrls.has(msg.id)) return;
+            const audio = document.createElement('audio');
+            audio.controls = true;
+            audio.src = audioUrls.get(msg.id);
+            const link = document.createElement('a');
+            link.href = audio.src;
+            link.download = 'audio.mp3';
+            link.textContent = 'Unduh audio';
+            wrapper.querySelector('.message-content').append(audio, link);
+        });
+    }
+    function canSend(text, attachments) {
+        if (state.isGenerating) return false;
+        const cfg = PROVIDERS_CONFIG[state.config.provider];
+        const tts = cfg?.isTTS || isTTSRequest(text);
+        if (tts && (attachments.length || !state.config.apiKeys?.fish_audio)) {
+            showToast('TTS membutuhkan API key Fish Audio dan pesan teks tanpa lampiran.', 'error');
+            modal.open('api');
+            return false;
         }
-        cancelTTS();
-        state.isGenerating = false;
+        if (!tts && !state.config.apiKey && !cfg?.isLocal && !cfg?.isCustom) {
+            modal.open('api');
+            showToast('Masukkan API key melalui pengaturan untuk memulai.', 'info');
+            return false;
+        }
+        try { resolveBaseUrl(state.config.provider, state.config.customBaseUrls?.[state.config.provider]); }
+        catch (err) { modal.open('api'); showToast(err.message, 'error'); return false; }
+        return true;
+    }
+    function handleSendMessage(text, attachments = [], options = {}, meta = {}) {
+        if (!canSend(text, attachments)) return false;
+        const safeText = redactSecretsInText(text, Object.values(state.config.apiKeys || {}));
+        if (safeText !== text) {
+            showToast('API key terdeteksi dalam pesan. Simpan melalui Pengaturan sebelum mengirim.', 'error');
+            modal.open('api');
+            return false;
+        }
+        const chat = getCurrentChat();
+        const msg = addMessage('user', safeText, attachments);
+        if (!msg) return false;
+        meta.clearAttachments?.();
+        appendUserMessage(msg);
+        const assistant = addMessage('assistant', '');
+        renderChats(chatActions);
+        executeResponse(chat, assistant, options, state.config.provider === 'fish_audio' || isTTSRequest(text) ? extractTTSText(text) : null);
+        return true;
+    }
+    function handleEditUserMessage(id, text) {
+        const chat = getCurrentChat();
+        const target = chat?.messages.find(m => m.id === id);
+        if (!target || state.isGenerating || !canSend(text, target.attachments || [])) return;
+        if (redactSecretsInText(text, Object.values(state.config.apiKeys || {})) !== text) { showToast('Hapus API key dari pesan; masukkan melalui Pengaturan.', 'error'); return; }
+        editMessageAndTruncate(id, text);
+        renderMessages(chat);
+        const assistant = addMessage('assistant', '');
+        renderChats(chatActions);
+        executeResponse(chat, assistant, {}, state.config.provider === 'fish_audio' || isTTSRequest(text) ? extractTTSText(text) : null);
+    }
+    async function executeResponse(chat, assistant, options = {}, ttsText = null) {
+        const requestId = ++generation;
+        const current = () => generation === requestId;
+        const requestController = new AbortController();
+        controller = requestController;
+        activeMessage = assistant;
+        state.isGenerating = true;
+        state.activeStream = { chatId: chat.id, messageId: assistant.id };
+        controls.setGenerating(true);
+        controls.enableInput(false);
+        appendStreamingMessage('', options.webSearch ? 'web' : 'default');
+        saveStore();
+        let lastSave = Date.now();
+        const finish = text => {
+            if (!current()) return;
+            assistant.content = processAssistantResponseForMemories(text).cleanText;
+            finalizeStreamingMessage(assistant.content);
+        };
+        try {
+            if (ttsText !== null) {
+                const bytes = await generateTTS(ttsText, { signal: requestController.signal });
+                if (!current()) return;
+                audioUrls.set(assistant.id, URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' })));
+                assistant.audio = true;
+                finish('Audio siap diputar atau diunduh. Audio tersedia selama sesi ini; buat ulang setelah memuat ulang halaman.');
+                renderMessages(chat);
+                mountAudio();
+            } else {
+                const messages = [{ role: 'system', content: [getAppKnowledgeSystemPrompt(), formatMemoriesForSystemPrompt(), state.config.systemPrompt].filter(Boolean).join('\n\n') }];
+                for (const m of chat.messages) {
+                    if (m.id === assistant.id) break;
+                    if (!m.audio) messages.push({ role: m.role, content: m.content, attachments: m.attachments });
+                }
+                await streamChat(messages, state.config.provider, state.config.apiKey, state.selectedModel,
+                    text => {
+                        if (!current()) return;
+                        assistant.content = text;
+                        updateStreamingMessage(text);
+                        if (Date.now() - lastSave > 1500) { lastSave = Date.now(); saveStore(); }
+                    },
+                    text => finish(text || 'Provider mengembalikan respons kosong. Coba model lain.'),
+                    error => finish(`${assistant.content}\n\n**Permintaan gagal:** ${error}`),
+                    { maxTokens: state.maxTokens, temperature: state.temperature, signal: requestController.signal, webSearch: options.webSearch, baseUrl: resolveBaseUrl(state.config.provider, state.config.customBaseUrls?.[state.config.provider]) });
+            }
+        } catch (err) {
+            if (current()) finish(`${assistant.content}\n\n**Permintaan gagal:** ${err.message}`);
+        } finally {
+            if (current()) {
+                controller = null;
+                activeMessage = null;
+                state.isGenerating = false;
+                state.activeStream = null;
+                controls.setGenerating(false);
+                controls.enableInput(true);
+                saveStore();
+            }
+        }
+    }
+    document.addEventListener('keydown', e => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); modal.open('api'); }
+    });
+    const openSettings = () => modal.open('api');
+    ['btn-settings', 'btn-open-settings-prompt'].forEach(id => document.getElementById(id)?.addEventListener('click', openSettings));
+    document.getElementById('btn-quick-theme').addEventListener('click', () => {
+        setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+    });
+    document.querySelectorAll('.action-pill').forEach(pill => pill.addEventListener('click', () => {
+        if (pill.id === 'btn-pill-settings') openSettings();
+        else setChatInputValue(pill.dataset.prompt || '');
+    }));
+    // A reload cannot resume a network request. Keep its partial text and mark it interrupted.
+    if (state.activeStream) {
+        const chat = state.chats.find(c => c.id === state.activeStream.chatId);
+        const msg = chat?.messages.find(m => m.id === state.activeStream.messageId);
+        if (msg) msg.content = `${msg.content || ''}\n\n*Respons terputus karena halaman dimuat ulang. Kirim pesan untuk melanjutkan.*`;
         state.activeStream = null;
         saveStore();
-        finalizeStreamingMessage();
-        chatInputControls.setGenerating(false);
-        chatInputControls.enableInput(true);
-        showToast('Respon dihentikan', 'info');
     }
-
-    document.addEventListener('keydown', (e) => {
-        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-            e.preventDefault();
-            modal.open('api');
-        }
-    });
-
-    // Pastikan semua link (markdown, referensi web, dsb) terbuka di tab baru agar tidak menimpa tab workspace LLM
-    document.addEventListener('click', (e) => {
-        const link = e.target.closest('a');
-        if (!link) return;
-        if (link.hasAttribute('download')) return;
-
-        const href = link.getAttribute('href');
-        if (!href || href.startsWith('#') || href.startsWith('javascript:')) {
-            e.preventDefault();
-            e.stopPropagation();
-            return;
-        }
-
-        // Validate URL scheme
-        try {
-            const url = new URL(href, window.location.href);
-            if (!['http:', 'https:', 'mailto:', 'tel:'].includes(url.protocol)) {
-                e.preventDefault();
-                e.stopPropagation();
-                return;
-            }
-        } catch (err) {
-            // Invalid URL, prevent navigation
-            e.preventDefault();
-            e.stopPropagation();
-            return;
-        }
-
-        link.setAttribute('target', '_blank');
-        link.setAttribute('rel', 'noopener noreferrer');
-    }, true);
-
-    const openApiSettings = (e) => {
-        if (e) e.stopPropagation();
-        modal.open('api');
-    };
-
-    document.getElementById('btn-settings')?.addEventListener('click', openApiSettings);
-    document.querySelector('.user-profile')?.addEventListener('click', openApiSettings);
-    document.getElementById('api-status')?.addEventListener('click', openApiSettings);
-    document.getElementById('btn-open-settings')?.addEventListener('click', openApiSettings);
-    document.getElementById('btn-open-settings-prompt')?.addEventListener('click', openApiSettings);
-    document.getElementById('banner-announcement-link')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        openApiSettings(e);
-    });
-
-    document.getElementById('btn-quick-theme')?.addEventListener('click', () => {
-        const nextTheme = state.config.theme === 'dark' ? 'light' : 'dark';
-        setTheme(nextTheme);
-        showToast(nextTheme === 'dark' ? 'Dark Mode aktif' : 'Light Mode aktif', 'info');
-    });
-
-    document.querySelectorAll('.action-pill').forEach(pill => {
-        pill.addEventListener('click', () => {
-            if (pill.id === 'btn-pill-settings') {
-                openApiSettings();
-                return;
-            }
-            const prompt = pill.dataset.prompt;
-            if (prompt) {
-                setChatInputValue(prompt);
-                focusChatInputIfDesktop();
-                if (pill.dataset.webSearch === 'true') {
-                    const btnWeb = document.getElementById('btn-web-search');
-                    if (btnWeb && !btnWeb.classList.contains('active')) {
-                        btnWeb.click();
-                    }
-                }
-            }
-        });
-    });
-
-    document.querySelectorAll('.suggestion-card').forEach(card => {
-        card.addEventListener('click', () => {
-            const prompt = card.dataset.prompt;
-            if (prompt) {
-                setChatInputValue(prompt);
-                focusChatInputIfDesktop();
-            }
-        });
-    });
-
-    function refreshUI() {
-        const currentChat = getCurrentChat();
-        renderMessages(currentChat);
-        updateHeaderModelDisplay();
-        headerModelSwitcher?.updateDisplay();
-
-        const apiStatus = document.getElementById('api-status');
-        if (apiStatus) {
-            if (state.config.apiKey) {
-                apiStatus.textContent = 'Connected';
-                apiStatus.classList.add('connected');
-            } else {
-                apiStatus.textContent = 'Offline';
-                apiStatus.classList.remove('connected');
-            }
-        }
-
-        renderChats({
-            onSelectChat: (id) => { state.currentChatId = id; refreshUI(); },
-            onDeleteChat: (id) => { deleteChat(id); refreshUI(); },
-            onTogglePin: (id) => { togglePinChat(id); refreshUI(); }
-        });
-
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });
-        }
-    }
-
-    async function executeStream(chat, assistantMsg, isContinuation = false, streamOptions = {}) {
-        const myGenerationId = ++activeGenerationId;
-        const myChatId = chat.id;
-        const myMessageId = assistantMsg.id;
-        const isCurrent = () => myGenerationId === activeGenerationId && state.currentChatId === myChatId;
-        state.isGenerating = true;
-        chatInputControls.setGenerating(true);
-        chatInputControls.enableInput(false);
-
-        activeAbortController = new AbortController();
-
-        try {
-            const initialPrefix = isContinuation && assistantMsg.content ? assistantMsg.content.trim() : '';
-
-            if (isContinuation) {
-                resumeStreamingMessage(initialPrefix);
-            } else {
-                let streamMode = 'default';
-                if (streamOptions.webSearch) {
-                    streamMode = 'web';
-                } else if (state.selectedModel?.includes('thinking') || state.selectedModel?.includes('r1')) {
-                    streamMode = 'thinking';
-                }
-                appendStreamingMessage('', streamMode);
-            }
-
-            const messagesForApi = [];
-
-            // Gabungkan pengetahuan lengkap aplikasi, instruksi sistem, dan memori lintas chat
-            const appKnowledgePrompt = getAppKnowledgeSystemPrompt();
-            const memoriesPrompt = formatMemoriesForSystemPrompt();
-            const userCustomPrompt = state.config.systemPrompt ? `\n\n[INSTRUKSI KHUSUS PENGGUNA]\n${state.config.systemPrompt}\n` : '';
-            const fullSystemPrompt = `${appKnowledgePrompt}${memoriesPrompt}${userCustomPrompt}`.trim();
-
-            messagesForApi.push({ role: 'system', content: fullSystemPrompt });
-
-            for (const m of chat.messages) {
-                if (m.id === assistantMsg.id) break;
-                messagesForApi.push({ role: m.role, content: m.content, attachments: m.attachments });
-            }
-
-            if (initialPrefix) {
-                messagesForApi.push({ role: 'assistant', content: initialPrefix });
-                messagesForApi.push({
-                    role: 'user',
-                    content: 'Lanjutkan jawaban Anda dari titik terakhir di atas tanpa mengulang kalimat yang sudah ditulis.'
-                });
-            }
-
-            let lastSave = 0;
-            const throttledSave = (text) => {
-                assistantMsg.content = text;
-                const now = Date.now();
-                if (now - lastSave > 500) {
-                    lastSave = now;
-                    saveStore();
-                }
-            };
-
-            await streamChat(
-                messagesForApi,
-                state.config.provider,
-                state.config.apiKey,
-                state.selectedModel,
-                (chunkText) => {
-                    if (!isCurrent()) return;
-                    const fullText = initialPrefix ? (initialPrefix + '\n\n' + chunkText) : chunkText;
-                    throttledSave(fullText);
-                    // Filter tag memori agar tidak mengganggu pratinjau teks saat streaming
-                    const liveDisplay = fullText.replace(/\[(?:MEMORY_ADD|INGAT|REMEMBER):.*?(\]|$)/gi, '').trimEnd();
-                    updateStreamingMessage(liveDisplay || fullText);
-                },
-                (finalText) => {
-                    if (!isCurrent()) return;
-                    let fullText = initialPrefix ? (initialPrefix + '\n\n' + finalText) : finalText;
-
-                    // Ekstraksi memori yang dipelajari secara otonom oleh AI
-                    const { cleanText, learnedMemories } = processAssistantResponseForMemories(fullText);
-                    fullText = cleanText;
-
-                    if (learnedMemories.length > 0) {
-                        learnedMemories.forEach(mem => {
-                            showToast(`AI mempelajari memori: "${mem}"`, 'success');
-                        });
-                    }
-
-                    assistantMsg.content = fullText;
-                    state.activeStream = null;
-                    activeAbortController = null;
-                    saveStore();
-                    finalizeStreamingMessage();
-                    updateStreamingMessage(fullText);
-                    state.isGenerating = false;
-                    chatInputControls.setGenerating(false);
-                    chatInputControls.enableInput(true);
-                },
-                (error) => {
-                    if (!isCurrent()) return;
-                    state.activeStream = null;
-                    activeAbortController = null;
-                    saveStore();
-                    finalizeStreamingMessage();
-                    updateStreamingMessage(`${assistantMsg.content}\n\n**[Terputus]:** ${error}`);
-                    state.isGenerating = false;
-                    chatInputControls.setGenerating(false);
-                    chatInputControls.enableInput(true);
-                },
-                {
-                    maxTokens: state.maxTokens,
-                    temperature: state.temperature,
-                    signal: activeAbortController.signal,
-                    webSearch: streamOptions.webSearch || false,
-                    baseUrl: state.config.baseUrl || state.config.customBaseUrls?.[state.config.provider] || ''
-                }
-            );
-        } catch (err) {
-            if (!isCurrent()) return;
-            state.activeStream = null;
-            activeAbortController = null;
-            saveStore();
-            finalizeStreamingMessage();
-            updateStreamingMessage(`**[Error]:** ${err.message || 'Gagal memulai koneksi chat.'}`);
-            state.isGenerating = false;
-            chatInputControls.setGenerating(false);
-            chatInputControls.enableInput(true);
-        }
-    }
-
-    async function handleSendMessage(text, attachments, options = {}, meta = {}) {
-        if (state.isGenerating) return;
-
-        const currentChat = getCurrentChat();
-        if (!currentChat) return;
-
-        // 1. Deteksi otomatis pengiriman API Key / Cuplikan kode konfigurasi API ke chat
-        const apiConfig = detectAndParseApiConfig(text);
-        if (apiConfig && (!attachments || attachments.length === 0)) {
-            const isPureSetup = isPureApiSetupMessage(text, apiConfig);
-
-            // Simpan konfigurasi otomatis ke state dan storage
-            applyApiConfig(apiConfig);
-            refreshUI();
-
-            showToast(`Provider ${apiConfig.providerName} & API Key berhasil terhubung!`, 'success');
-
-            if (isPureSetup) {
-                const userMsg = addMessage('user', redactSecretsInText(text));
-                if (userMsg) appendUserMessage(userMsg);
-
-                const cardContent = generateConnectionSuccessCard(apiConfig);
-                const assistantMsg = addMessage('assistant', cardContent);
-                saveStore();
-
-                renderChats({
-                    onSelectChat: (id) => { state.currentChatId = id; saveStore(); refreshUI(); },
-                    onDeleteChat: (id) => { deleteChat(id); refreshUI(); },
-                    onTogglePin: (id) => { togglePinChat(id); refreshUI(); }
-                });
-
-                if (assistantMsg) {
-                    appendStreamingMessage('', 'default');
-                    finalizeStreamingMessage();
-                    updateStreamingMessage(cardContent);
-                }
-                return;
-            }
-        }
-
-        // Deteksi apakah pengguna meminta pembuatan gambar AI
-        if (isImageGenerationRequest(text) && (!attachments || attachments.length === 0)) {
-            const imgPrompt = extractImagePrompt(text);
-            const userMsg = addMessage('user', redactSecretsInText(text), attachments);
-            if (!userMsg) return;
-
-            appendUserMessage(userMsg);
-
-            const imgUrl = getGeneratedImageUrl(imgPrompt);
-            const assistantMarkdown = `Berikut adalah gambar resolusi tinggi yang dihasilkan sesuai permintaan Anda:\n\n![${imgPrompt}](${imgUrl})\n\n> *Prompt Visual:* "${imgPrompt}"`;
-
-            const assistantMsg = addMessage('assistant', assistantMarkdown);
-            saveStore();
-
-            // Render langsung ke pesan
-            const chatWrapper = renderMessages(currentChat);
-            showToast('Gambar AI berhasil dibuat', 'success');
-
-            renderChats({
-                onSelectChat: (id) => { state.currentChatId = id; saveStore(); refreshUI(); },
-                onDeleteChat: (id) => { deleteChat(id); refreshUI(); },
-                onTogglePin: (id) => { togglePinChat(id); refreshUI(); }
-            });
-            return;
-        }
-
-        // Deteksi apakah pengguna meminta Text-to-Speech (TTS)
-        if (isTTSRequest(text) && (!attachments || attachments.length === 0)) {
-            const ttsText = extractTTSText(text);
-            const userMsg = addMessage('user', redactSecretsInText(text), attachments);
-            if (!userMsg) return;
-
-            appendUserMessage(userMsg);
-
-            try {
-                // Single generation: generate once, play, then offer download of the same buffer
-                const audioBuffer = await generateTTS(ttsText);
-                await playAudioBuffer(audioBuffer);
-                
-                const assistantMarkdown = `🔊 **TTS Generated & Played**\n\n**Teks:** "${ttsText}"`;
-
-                const assistantMsg = addMessage('assistant', assistantMarkdown);
-                saveStore();
-                renderMessages(currentChat);
-                showToast('TTS berhasil diputar', 'success');
-
-                // Offer download of the SAME audio buffer (no second API call)
-                const downloadBtn = document.createElement('button');
-                downloadBtn.textContent = 'Download Audio';
-                downloadBtn.className = 'ai-image-btn';
-                downloadBtn.onclick = () => downloadAudioBuffer(audioBuffer, `tts_${Date.now()}.mp3`);
-                
-                const lastMsg = document.querySelector('.message-wrapper.assistant:last-child .message-content');
-                if (lastMsg) {
-                    const actionsDiv = document.createElement('div');
-                    actionsDiv.className = 'ai-image-actions';
-                    actionsDiv.appendChild(downloadBtn);
-                    lastMsg.appendChild(actionsDiv);
-                }
-
-            } catch (err) {
-                const assistantMsg = addMessage('assistant', `**Error TTS:** ${err.message}`);
-                saveStore();
-                renderMessages(currentChat);
-                showToast('Gagal generate TTS', 'error');
-            }
-
-            renderChats({
-                onSelectChat: (id) => { state.currentChatId = id; saveStore(); refreshUI(); },
-                onDeleteChat: (id) => { deleteChat(id); refreshUI(); },
-                onTogglePin: (id) => { togglePinChat(id); refreshUI(); }
-            });
-            return;
-        }
-
-        if (!state.config.apiKey && !providerAllowsNoKey(state.config.provider)) {
-            modal.open('api');
-            showToast('Masukkan API Key terlebih dahulu di Settings', 'error');
-            return;
-        }
-
-        // Redact secret apapun yang tidak sengaja tertinggal di pesan
-        // (mis. user menulis "INI API_KEY SAYA = sk-xxx") sebelum disimpan
-        // maupun diteruskan ke LLM.
-        const safeText = redactSecretsInText(text);
-        const userMsg = addMessage('user', safeText, attachments);
-        if (!userMsg) return;
-
-        // Lampiran sudah disalin ke dalam pesan (lihat addMessage: spread copy).
-        // Saatnya melepas state lampiran input agar tidak terduplikasi.
-        if (typeof meta.clearAttachments === 'function') meta.clearAttachments();
-
-        appendUserMessage(userMsg);
-
-        const assistantMsg = addMessage('assistant', '');
-        state.activeStream = {
-            chatId: currentChat.id,
-            messageId: assistantMsg.id
-        };
-        saveStore();
-
-        renderChats({
-            onSelectChat: (id) => { state.currentChatId = id; saveStore(); refreshUI(); },
-            onDeleteChat: (id) => { deleteChat(id); refreshUI(); },
-            onTogglePin: (id) => { togglePinChat(id); refreshUI(); }
-        });
-
-        executeStream(currentChat, assistantMsg, false, options);
-    }
-
-    function providerAllowsNoKey(providerId) {
-        const cfg = PROVIDERS_CONFIG[providerId];
-        return Boolean(cfg && (cfg.isLocal || cfg.isCustom));
-    }
-
-    async function handleEditUserMessage(messageId, newText) {
-        if (state.isGenerating) {
-            handleStopGeneration();
-        }
-
-        const currentChat = getCurrentChat();
-        if (!currentChat) return;
-
-        const targetMsg = currentChat.messages.find(m => m.id === messageId);
-        if (!targetMsg) return;
-
-        // Edit isi pesan dan potong percakapan setelah pesan ini (respon sebelumnya & di bawahnya terhapus)
-        const editedMsg = editMessageAndTruncate(messageId, newText);
-        if (!editedMsg) return;
-
-        // Cek jika prompt yang diedit adalah permintaan gambar AI
-        if (isImageGenerationRequest(newText) && (!editedMsg.attachments || editedMsg.attachments.length === 0)) {
-            const imgPrompt = extractImagePrompt(newText);
-            const imgUrl = getGeneratedImageUrl(imgPrompt);
-            const assistantMarkdown = `Berikut adalah gambar resolusi tinggi yang dihasilkan sesuai permintaan Anda:\n\n![${imgPrompt}](${imgUrl})\n\n> *Prompt Visual:* "${imgPrompt}"`;
-
-            addMessage('assistant', assistantMarkdown);
-            saveStore();
-            renderMessages(currentChat);
-            showToast('Prompt diupdate, gambar AI digenerate...', 'success');
-
-            renderChats({
-                onSelectChat: (id) => { state.currentChatId = id; saveStore(); refreshUI(); },
-                onDeleteChat: (id) => { deleteChat(id); refreshUI(); },
-                onTogglePin: (id) => { togglePinChat(id); refreshUI(); }
-            });
-            return;
-        }
-
-        // Cek jika prompt yang diedit adalah permintaan TTS
-        if (isTTSRequest(newText) && (!editedMsg.attachments || editedMsg.attachments.length === 0)) {
-            const ttsText = extractTTSText(newText);
-            
-            try {
-                // Single generation: generate once, play, offer download of same buffer
-                const audioBuffer = await generateTTS(ttsText);
-                await playAudioBuffer(audioBuffer);
-                
-                const assistantMarkdown = `🔊 **TTS Generated & Played**\n\n**Teks:** "${ttsText}"`;
-
-                addMessage('assistant', assistantMarkdown);
-                saveStore();
-                renderMessages(currentChat);
-                showToast('TTS berhasil diputar', 'success');
-            } catch (err) {
-                addMessage('assistant', `**Error TTS:** ${err.message}`);
-                saveStore();
-                renderMessages(currentChat);
-                showToast('Gagal generate TTS', 'error');
-            }
-
-            renderChats({
-                onSelectChat: (id) => { state.currentChatId = id; saveStore(); refreshUI(); },
-                onDeleteChat: (id) => { deleteChat(id); refreshUI(); },
-                onTogglePin: (id) => { togglePinChat(id); refreshUI(); }
-            });
-            return;
-        }
-
-        if (!state.config.apiKey && !providerAllowsNoKey(state.config.provider)) {
-            renderMessages(currentChat);
-            modal.open('api');
-            showToast('Masukkan API Key terlebih dahulu di Settings', 'error');
-            return;
-        }
-
-        // Render kembali pesan hingga prompt yang diedit (respon lama terhapus)
-        renderMessages(currentChat);
-
-        // Tambah pesan asisten kosong untuk menampung streaming respon baru
-        const assistantMsg = addMessage('assistant', '');
-        state.activeStream = {
-            chatId: currentChat.id,
-            messageId: assistantMsg.id
-        };
-        saveStore();
-
-        renderChats({
-            onSelectChat: (id) => { state.currentChatId = id; saveStore(); refreshUI(); },
-            onDeleteChat: (id) => { deleteChat(id); refreshUI(); },
-            onTogglePin: (id) => { togglePinChat(id); refreshUI(); }
-        });
-
-        const isWebSearch = chatInputControls?.isWebSearchActive ? chatInputControls.isWebSearchActive() : false;
-        executeStream(currentChat, assistantMsg, false, { webSearch: isWebSearch });
-        showToast('Prompt diupdate, AI generate respon baru...', 'info');
-    }
-
+    window.addEventListener('pagehide', () => { saveStore(); audioUrls.forEach(url => URL.revokeObjectURL(url)); });
     refreshUI();
-    focusChatInputIfDesktop();
-
-    if (state.activeStream) {
-        // After browser reload, there is no actual network stream to resume.
-        // Mark the incomplete assistant response as interrupted.
-        const activeChat = state.chats.find(c => c.id === state.activeStream.chatId);
-        if (activeChat) {
-            state.currentChatId = activeChat.id;
-            const assistantMsg = activeChat.messages.find(m => m.id === state.activeStream.messageId);
-            if (assistantMsg && assistantMsg.role === 'assistant') {
-                // Mark as interrupted - do NOT attempt to resume generation
-                // as the network stream is gone after reload
-                const existingContent = assistantMsg.content || '';
-                if (existingContent && !existingContent.includes('[Terputus]')) {
-                    assistantMsg.content = existingContent + '\n\n**[Terputus]:** Sesi browser di-reload. Silakan kirim ulang jika ingin melanjutkan.';
-                }
-            }
-            state.activeStream = null;
-            saveStore();
-        } else {
-            state.activeStream = null;
-            saveStore();
-        }
-    }
+    const area = document.querySelector('.input-area');
+    new ResizeObserver(() => document.getElementById('main-content').style.setProperty('--composer-height', `${area.offsetHeight}px`)).observe(area);
 }
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', startApp);
-} else {
-    startApp();
-}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startApp);
+else startApp();

@@ -32,7 +32,8 @@ export function initInputUI(onSendMessage, onStopGeneration) {
     };
 
     async function processFiles(files) {
-        if (!files || files.length === 0) return;
+        if (!files || files.length === 0 || isGeneratingState) return;
+        if (getPendingAttachments().length + processingFiles.length + files.length > 8) { showToast('Maksimal 8 lampiran per pesan.', 'error'); return; }
 
         const validItems = [];
         for (const file of files) {
@@ -61,9 +62,10 @@ export function initInputUI(onSendMessage, onStopGeneration) {
 
         if (validItems.length === 0) return;
 
-        await Promise.all(validItems.map(async ({ file, loadingItem }) => {
+        for (const { file, loadingItem } of validItems) {
             try {
                 const processed = await processFile(file);
+                if (processed.textContent?.length > 200000) processed.textContent = processed.textContent.slice(0, 200000) + '\n[Isi dipotong pada 200.000 karakter.]';
                 if (!loadingItem.cancelled) {
                     addPendingAttachment(processed);
                 }
@@ -80,7 +82,7 @@ export function initInputUI(onSendMessage, onStopGeneration) {
                 adjustHeight();
                 updateSendButtonState();
             }
-        }));
+        }
     }
 
     chatInput.addEventListener('input', () => {
@@ -89,7 +91,7 @@ export function initInputUI(onSendMessage, onStopGeneration) {
     });
 
     chatInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
+        if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
             e.preventDefault();
             if (isGeneratingState) {
                 if (typeof onStopGeneration === 'function') onStopGeneration();
@@ -129,7 +131,7 @@ export function initInputUI(onSendMessage, onStopGeneration) {
             btnWebSearch.classList.toggle('active', isWebSearchActive);
             btnWebSearch.setAttribute('aria-pressed', isWebSearchActive ? 'true' : 'false');
             if (isWebSearchActive) {
-                showToast('Web Search aktif: AI akan live browsing data terbaru', 'info');
+                showToast('Pencarian web aktif. Biaya pencarian mengikuti provider.', 'info');
             } else {
                 showToast('Web Search nonaktif', 'info');
             }
@@ -408,24 +410,17 @@ export function initInputUI(onSendMessage, onStopGeneration) {
     }
 
     function submitMessage() {
-        if (processingFiles.length > 0) return;
+        if (processingFiles.length || isGeneratingState) return;
         const text = chatInput.value.trim();
-        const attachments = getPendingAttachments();
-        if (!text && attachments.length === 0) return;
-
-        chatInput.value = '';
-        chatInput.style.height = 'auto';
-        btnSend.disabled = true;
-        // Catatan: pendingAttachments tidak dikosongkan di sini.
-        // Input layer hanya melepas tampilan; aplikasi yang memutuskan
-        // apakah lampiran benar-benar dipakai (lihat handler di app.js).
-        // Jika aplikasi menolak (misal API key kosong), state tetap utuh
-        // sehingga pengguna tidak perlu unggah ulang.
-        renderImagePreviews();
-
-        onSendMessage(text, attachments, { webSearch: isWebSearchActive }, {
-            clearAttachments: () => clearPendingAttachments()
+        const attachments = [...getPendingAttachments()];
+        if (!text && !attachments.length) return;
+        const accepted = onSendMessage(text, attachments, { webSearch: isWebSearchActive }, {
+            clearAttachments: () => { clearPendingAttachments(); renderImagePreviews(); }
         });
+        if (accepted === false) return;
+        chatInput.value = '';
+        adjustHeight();
+        updateSendButtonState();
     }
 
     initDragAndDrop();
@@ -477,6 +472,15 @@ export function initInputUI(onSendMessage, onStopGeneration) {
             chatInput.focus();
             const len = chatInput.value.length;
             chatInput.setSelectionRange(len, len);
+        },
+        setWebSearchAvailable: available => {
+            btnWebSearch.disabled = !available || isGeneratingState;
+            btnWebSearch.title = available ? 'Pencarian web (biaya provider dapat berlaku)' : 'Pencarian web tersedia melalui OpenRouter atau Perplexity';
+            if (!available) {
+                isWebSearchActive = false;
+                btnWebSearch.classList.remove('active');
+                btnWebSearch.setAttribute('aria-pressed', 'false');
+            }
         },
         isWebSearchActive: () => isWebSearchActive
     };

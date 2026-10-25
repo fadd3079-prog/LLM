@@ -1,5 +1,5 @@
 import { parseMarkdown } from '../utils/markdown.js';
-import { repairIncompleteMarkdown, calculateConsumptionStep } from '../api/stream-parser.js';
+import { repairIncompleteMarkdown } from '../api/stream-parser.js';
 import { formatTime } from '../utils/dom.js';
 import { enhanceCodeBlocks, enhanceTables, appendAssistantActions, appendUserActions, setEditMessageCallback } from './chat-actions.js';
 import { downloadImageFromUrl } from '../services/image-generator.js';
@@ -60,32 +60,28 @@ export function enhanceImages(container) {
         card.appendChild(header);
         card.appendChild(wrapper);
 
-        const dlBtn = header.querySelector('.btn-dl-img');
         dlBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             downloadImageFromUrl(img.src, `ai_gambar_${Date.now()}.jpg`);
         });
 
-        const viewBtn = header.querySelector('.btn-view-img');
         viewBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            window.open(img.src, '_blank');
+            window.open(img.src, '_blank', 'noopener,noreferrer');
         });
 
         img.addEventListener('click', () => {
-            window.open(img.src, '_blank');
+            window.open(img.src, '_blank', 'noopener,noreferrer');
         });
     });
 }
 
 let incomingTargetText = '';
-let consumedLength = 0;
 let lastRenderTimestamp = 0;
 let isStreamActive = false;
 let streamAnimationId = null;
 let userScrolledUp = false;
 
-const RENDER_INTERVAL_MS = 24;
 
 export function initChatScroll() {
     const canvas = document.getElementById('chat-canvas');
@@ -160,6 +156,9 @@ export function renderMessages(chat) {
     const hasMessages = Boolean(chat && chat.messages.length > 0);
     const container = toggleChatVisibility(hasMessages);
     if (!container) return;
+    cancelAnimationFrame(streamAnimationId);
+    streamAnimationId = null;
+    isStreamActive = false;
     container.innerHTML = '';
     if (hasMessages) {
         chat.messages.forEach(msg => container.appendChild(createMessageElement(msg)));
@@ -252,7 +251,6 @@ function createMessageElement(msg) {
 
 function setupStreamingWrapper(initialText = '', isResume = false, streamMode = 'default') {
     incomingTargetText = initialText;
-    consumedLength = initialText.length;
     lastRenderTimestamp = 0;
     isStreamActive = true;
     userScrolledUp = false;
@@ -344,68 +342,46 @@ export function resumeStreamingMessage(initialText = '') {
 }
 
 export function updateStreamingMessage(text) {
-    incomingTargetText = text;
+    incomingTargetText = String(text || '');
     if (!streamAnimationId && isStreamActive) {
         streamAnimationId = requestAnimationFrame(streamRenderLoop);
     }
 }
 
-let streamFinalized = false;
-
-export function finalizeStreamingMessage() {
+export function finalizeStreamingMessage(text = incomingTargetText) {
+    incomingTargetText = String(text || '');
     isStreamActive = false;
+    cancelAnimationFrame(streamAnimationId);
     streamAnimationId = null;
-    streamFinalized = false;
+    const content = document.getElementById('current-stream');
+    if (content) finalizeStreamRender(content);
 }
 
 function streamRenderLoop(timestamp) {
+    streamAnimationId = null;
     const content = document.getElementById('current-stream');
-    if (!content) {
-        streamAnimationId = null;
-        return;
+    if (!content || !isStreamActive) return;
+    if (timestamp - lastRenderTimestamp >= 60 && content.dataset.rendered !== incomingTargetText) {
+        lastRenderTimestamp = timestamp;
+        content.dataset.rendered = incomingTargetText;
+        if (incomingTargetText) content.innerHTML = parseMarkdown(repairIncompleteMarkdown(incomingTargetText));
+        scrollChatToBottom(false);
     }
-
-    const unconsumed = incomingTargetText.length - consumedLength;
-
-    if (unconsumed > 0) {
-        if (!lastRenderTimestamp) lastRenderTimestamp = timestamp;
-        const elapsed = timestamp - lastRenderTimestamp;
-
-        if (elapsed >= RENDER_INTERVAL_MS) {
-            lastRenderTimestamp = timestamp;
-            const step = calculateConsumptionStep(unconsumed);
-            consumedLength = Math.min(incomingTargetText.length, consumedLength + step);
-
-            const currentSubstr = incomingTargetText.slice(0, consumedLength);
-            const repairedMarkdown = repairIncompleteMarkdown(currentSubstr);
-            content.innerHTML = parseMarkdown(repairedMarkdown);
-            scrollChatToBottom(false);
-        }
-
-        streamAnimationId = requestAnimationFrame(streamRenderLoop);
-    } else if (isStreamActive && unconsumed > 0) {
-        streamAnimationId = requestAnimationFrame(streamRenderLoop);
-    } else {
-        finalizeStreamRender(content);
-    }
+    // Wait for new data without polling on every frame; keep the target mounted.
+    if (incomingTargetText && content.dataset.rendered !== incomingTargetText) streamAnimationId = requestAnimationFrame(streamRenderLoop);
 }
 
 function finalizeStreamRender(content) {
-    streamAnimationId = null;
-    if (streamFinalized) return;
-    streamFinalized = true;
     content.removeAttribute('id');
+    delete content.dataset.rendered;
     const wrapper = content.parentElement;
-    if (wrapper) {
-        wrapper.classList.remove('streaming');
-        content.innerHTML = parseMarkdown(incomingTargetText);
-        enhanceCodeBlocks(content);
-        enhanceTables(content);
-        enhanceImages(content);
-        appendAssistantActions(wrapper, content, incomingTargetText);
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });
-        }
-    }
+    wrapper.classList.remove('streaming');
+    content.innerHTML = parseMarkdown(incomingTargetText);
+    enhanceCodeBlocks(content);
+    enhanceTables(content);
+    enhanceImages(content);
+    wrapper.querySelectorAll('.assistant-actions').forEach(el => el.remove());
+    appendAssistantActions(wrapper, content, incomingTargetText);
+    if (window.lucide) window.lucide.createIcons();
     scrollChatToBottom(false);
 }
