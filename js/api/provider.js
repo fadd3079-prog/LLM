@@ -560,7 +560,9 @@ async function readStreamResponse(response, onChunk, onComplete, onError, option
             fullText += deltaContent;
         }
         const composed = buildComposedOutput();
-        if (onChunk) onChunk(composed);
+        const hasThinkTags = fullText.includes('<think>');
+        const visibleText = hasThinkTags ? fullText.replace(/<think>[\s\S]*?(?:<\/think>|$)/g, '').trim() : fullText;
+        if (onChunk) onChunk(composed, { hasOutput: Boolean(visibleText), hasReasoning: Boolean(accumulatedReasoning || hasThinkTags) });
     };
 
     try {

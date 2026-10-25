@@ -34,7 +34,7 @@ async function startApp() {
         state.isGenerating = false;
         state.activeStream = null;
         if (activeMessage && !activeMessage.content) activeMessage.content = '*Respons dihentikan.*';
-        finalizeStreamingMessage(activeMessage?.content);
+        finalizeStreamingMessage(activeMessage?.content, 'stopped');
         activeMessage = null;
         controls?.setGenerating(false);
         controls?.enableInput(true);
@@ -177,13 +177,13 @@ async function startApp() {
         state.activeStream = { chatId: chat.id, messageId: assistant.id };
         controls.setGenerating(true);
         controls.enableInput(false);
-        appendStreamingMessage('', options.webSearch ? 'web' : 'default');
+        appendStreamingMessage('', ttsText !== null ? 'audio' : options.webSearch ? 'web' : 'default');
         saveStore();
         let lastSave = Date.now();
-        const finish = text => {
+        const finish = (text, phase = 'complete') => {
             if (!current()) return;
             assistant.content = processAssistantResponseForMemories(text).cleanText;
-            finalizeStreamingMessage(assistant.content);
+            finalizeStreamingMessage(assistant.content, phase);
         };
         try {
             if (ttsText !== null) {
@@ -201,18 +201,18 @@ async function startApp() {
                     if (!m.audio) messages.push({ role: m.role, content: m.content, attachments: m.attachments });
                 }
                 await streamChat(messages, state.config.provider, state.config.apiKey, state.selectedModel,
-                    text => {
+                    (text, meta) => {
                         if (!current()) return;
                         assistant.content = text;
-                        updateStreamingMessage(text);
+                        updateStreamingMessage(text, meta);
                         if (Date.now() - lastSave > 1500) { lastSave = Date.now(); saveStore(); }
                     },
                     text => finish(text || 'Provider mengembalikan respons kosong. Coba model lain.'),
-                    error => finish(`${assistant.content}\n\n**Permintaan gagal:** ${error}`),
+                    error => finish(`${assistant.content}\n\n**Permintaan gagal:** ${error}`, 'error'),
                     { maxTokens: state.maxTokens, temperature: state.temperature, signal: requestController.signal, webSearch: options.webSearch, baseUrl: resolveBaseUrl(state.config.provider, state.config.customBaseUrls?.[state.config.provider]) });
             }
         } catch (err) {
-            if (current()) finish(`${assistant.content}\n\n**Permintaan gagal:** ${err.message}`);
+            if (current()) finish(`${assistant.content}\n\n**Permintaan gagal:** ${err.message}`, 'error');
         } finally {
             if (current()) {
                 controller = null;

@@ -1,5 +1,8 @@
 import { parseMarkdown } from '../utils/markdown.js';
 import { repairIncompleteMarkdown } from '../api/stream-parser.js';
+import { animateElement, animateLayout, motionAllowed } from '../utils/motion.js';
+import { reconcileStreamHTML, settleStreamHTML } from '../utils/stream-dom.js';
+import { t } from '../services/i18n.js';
 import { formatTime } from '../utils/dom.js';
 import { enhanceCodeBlocks, enhanceTables, appendAssistantActions, appendUserActions, setEditMessageCallback } from './chat-actions.js';
 import { downloadImageFromUrl } from '../services/image-generator.js';
@@ -81,6 +84,10 @@ let lastRenderTimestamp = 0;
 let isStreamActive = false;
 let streamAnimationId = null;
 let userScrolledUp = false;
+let lastRenderedText = '';
+let renderCost = 0;
+let streamPhase = 'writing';
+let scrollAnimationId = null;
 
 
 export function initChatScroll() {
@@ -90,6 +97,7 @@ export function initChatScroll() {
     canvas.dataset.scrollTrackingAttached = 'true';
 
     const checkScroll = () => {
+        if (scrollAnimationId && !userScrolledUp) return;
         const threshold = 120;
         const distanceFromBottom = canvas.scrollHeight - canvas.scrollTop - canvas.clientHeight;
         userScrolledUp = distanceFromBottom > threshold;
@@ -103,14 +111,19 @@ export function initChatScroll() {
         }
     };
 
-    canvas.addEventListener('wheel', checkScroll, { passive: true });
-    canvas.addEventListener('touchmove', checkScroll, { passive: true });
+    const readerInteraction = e => {
+        cancelAnimationFrame(scrollAnimationId);
+        scrollAnimationId = null;
+        if (e.type === 'touchmove' || e.deltaY < 0) userScrolledUp = true;
+    };
+    canvas.addEventListener('wheel', readerInteraction, { passive: true });
+    canvas.addEventListener('touchmove', readerInteraction, { passive: true });
     canvas.addEventListener('scroll', checkScroll, { passive: true });
 
     if (scrollBtn) {
         scrollBtn.addEventListener('click', () => {
             userScrolledUp = false;
-            canvas.scrollTo({ top: canvas.scrollHeight, behavior: 'smooth' });
+            scrollChatToBottom(true);
             scrollBtn.classList.add('hidden');
         });
     }
@@ -119,12 +132,31 @@ export function initChatScroll() {
 export function scrollChatToBottom(smooth = false) {
     const canvas = document.getElementById('chat-canvas');
     if (!canvas || userScrolledUp) return;
-    if (smooth) canvas.scrollTo({ top: canvas.scrollHeight, behavior: 'smooth' });
-    else canvas.scrollTop = canvas.scrollHeight;
+    if (!smooth || !motionAllowed()) {
+        cancelAnimationFrame(scrollAnimationId);
+        scrollAnimationId = null;
+        canvas.scrollTop = canvas.scrollHeight;
+    } else if (!scrollAnimationId) {
+        let previous = 0;
+        const follow = timestamp => {
+            scrollAnimationId = null;
+            if (userScrolledUp || !canvas.isConnected) return;
+            const target = canvas.scrollHeight - canvas.clientHeight;
+            const gap = target - canvas.scrollTop;
+            if (gap <= 1 || !motionAllowed()) { canvas.scrollTop = target; return; }
+            const elapsed = previous ? Math.min(timestamp - previous, 50) : 16.67;
+            previous = timestamp;
+            canvas.scrollTop += gap * (1 - Math.exp(-elapsed / 65));
+            scrollAnimationId = requestAnimationFrame(follow);
+        };
+        scrollAnimationId = requestAnimationFrame(follow);
+    }
     document.getElementById('btn-scroll-bottom')?.classList.add('hidden');
 }
 
 function toggleChatVisibility(showMessages) {
+    const composer = document.querySelector('.input-area-inner');
+    const previous = document.getElementById('main-content')?.classList.contains('has-messages') !== showMessages ? composer?.getBoundingClientRect() : null;
     const container = document.getElementById('messages-container');
     const emptyState = document.getElementById('empty-state');
     if (!container || !emptyState) return null;
@@ -141,13 +173,16 @@ function toggleChatVisibility(showMessages) {
         actionPills.classList.toggle('hidden', showMessages);
     }
 
+    if (previous) animateLayout(composer, previous);
     return container;
 }
 
 export function appendUserMessage(msg) {
     const container = toggleChatVisibility(true);
     if (!container) return;
-    container.appendChild(createMessageElement(msg));
+    const element = createMessageElement(msg);
+    container.appendChild(element);
+    animateElement(element, [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 280 });
     userScrolledUp = false;
     scrollChatToBottom(false);
 }
@@ -157,7 +192,9 @@ export function renderMessages(chat) {
     const container = toggleChatVisibility(hasMessages);
     if (!container) return;
     cancelAnimationFrame(streamAnimationId);
+    cancelAnimationFrame(scrollAnimationId);
     streamAnimationId = null;
+    scrollAnimationId = null;
     isStreamActive = false;
     container.innerHTML = '';
     if (hasMessages) {
@@ -251,86 +288,55 @@ function createMessageElement(msg) {
 
 function setupStreamingWrapper(initialText = '', isResume = false, streamMode = 'default') {
     incomingTargetText = initialText;
+    lastRenderedText = '';
     lastRenderTimestamp = 0;
+    renderCost = 0;
     isStreamActive = true;
     userScrolledUp = false;
-
-    if (streamAnimationId) {
-        cancelAnimationFrame(streamAnimationId);
-        streamAnimationId = null;
-    }
-
+    cancelAnimationFrame(streamAnimationId);
+    streamAnimationId = null;
     initChatScroll();
-
     const container = toggleChatVisibility(true);
-    let content;
-    if (isResume) {
-        const lastWrapper = container?.lastElementChild;
-        if (lastWrapper?.classList.contains('assistant')) {
-            lastWrapper.classList.add('streaming');
-            content = lastWrapper.querySelector('.message-content');
-            if (content) {
-                content.id = 'current-stream';
-                lastWrapper.querySelector('.assistant-actions')?.remove();
-            }
-        }
+    let wrapper = isResume ? container?.lastElementChild : null;
+    if (!wrapper?.classList.contains('assistant')) {
+        wrapper = document.createElement('div');
+        wrapper.className = 'message-wrapper assistant';
+        const header = document.createElement('div');
+        header.className = 'message-header';
+        const role = document.createElement('span');
+        role.className = 'role-badge';
+        role.textContent = 'Assistant';
+        const time = document.createElement('span');
+        time.className = 'timestamp';
+        time.textContent = formatTime(new Date());
+        header.append(role, time);
+        const content = document.createElement('div');
+        content.className = 'message-content';
+        wrapper.append(header, content);
+        container?.append(wrapper);
     }
-
-    if (!content) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'message-wrapper assistant streaming';
-
-        let placeholderHtml = '';
-        if (streamMode === 'web') {
-            placeholderHtml = `
-                <div class="stream-loader minimal web">
-                    <i data-lucide="globe" class="loader-icon-spin"></i>
-                    <span class="loader-text">Searching</span>
-                    <span class="loader-dots">
-                        <span class="dot"></span>
-                        <span class="dot"></span>
-                        <span class="dot"></span>
-                    </span>
-                </div>
-            `;
-        } else if (streamMode === 'thinking') {
-            placeholderHtml = `
-                <div class="stream-loader minimal thinking">
-                    <i data-lucide="sparkles" class="loader-icon-pulse"></i>
-                    <span class="loader-text">Thinking</span>
-                    <span class="loader-dots">
-                        <span class="dot"></span>
-                        <span class="dot"></span>
-                        <span class="dot"></span>
-                    </span>
-                </div>
-            `;
-        } else {
-            placeholderHtml = `
-                <div class="stream-loader dots-only">
-                    <span class="pulse-dot"></span>
-                    <span class="pulse-dot"></span>
-                    <span class="pulse-dot"></span>
-                </div>
-            `;
-        }
-
-        wrapper.innerHTML = `
-            <div class="message-header">
-                <span class="role-badge">Assistant</span>
-                <span class="timestamp">${formatTime(new Date())}</span>
-            </div>
-            <div class="message-content" id="current-stream">${initialText ? parseMarkdown(initialText) : placeholderHtml}</div>
-        `;
-        container?.appendChild(wrapper);
-
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons({ attrs: { 'stroke-width': '1.5' } });
-        }
+    wrapper.classList.add('streaming');
+    wrapper.dataset.generationPhase = 'waiting';
+    wrapper.setAttribute('aria-busy', 'true');
+    wrapper.querySelector('.assistant-actions')?.remove();
+    wrapper.querySelector('.generation-status')?.remove();
+    const status = document.createElement('span');
+    status.className = 'generation-status';
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    status.innerHTML = '<span class="generation-status-dot" aria-hidden="true"></span><span class="generation-status-label"></span>';
+    wrapper.querySelector('.message-header').append(status);
+    status.querySelector('.generation-status-label').textContent = t(streamMode === 'web' ? 'motion_searching' : streamMode === 'audio' ? 'motion_audio' : 'motion_thinking');
+    const content = wrapper.querySelector('.message-content');
+    content.id = 'current-stream';
+    if (initialText) reconcileStreamHTML(content, parseMarkdown(initialText));
+    else {
+        content.innerHTML = '<div class="thinking-indicator" aria-hidden="true"><span class="thinking-signal"><span></span><span></span><span></span><span></span></span><span class="thinking-caption"></span></div>';
+        content.querySelector('.thinking-caption').textContent = t('motion_waiting');
     }
-
-    scrollChatToBottom(false);
-    streamAnimationId = requestAnimationFrame(streamRenderLoop);
+    animateElement(wrapper, [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 280 });
+    scrollChatToBottom(true);
+    if (initialText) streamAnimationId = requestAnimationFrame(streamRenderLoop);
 }
 
 export function appendStreamingMessage(initialText = '', streamMode = 'default') {
@@ -341,47 +347,66 @@ export function resumeStreamingMessage(initialText = '') {
     setupStreamingWrapper(initialText, true, 'default');
 }
 
-export function updateStreamingMessage(text) {
+export function updateStreamingMessage(text, meta = {}) {
+    streamPhase = meta.hasOutput === false && meta.hasReasoning ? 'thinking' : 'writing';
     incomingTargetText = String(text || '');
     if (!streamAnimationId && isStreamActive) {
         streamAnimationId = requestAnimationFrame(streamRenderLoop);
     }
 }
 
-export function finalizeStreamingMessage(text = incomingTargetText) {
+export function finalizeStreamingMessage(text = incomingTargetText, phase = 'complete') {
     incomingTargetText = String(text || '');
     isStreamActive = false;
     cancelAnimationFrame(streamAnimationId);
     streamAnimationId = null;
     const content = document.getElementById('current-stream');
-    if (content) finalizeStreamRender(content);
+    if (content) finalizeStreamRender(content, phase);
 }
 
 function streamRenderLoop(timestamp) {
     streamAnimationId = null;
     const content = document.getElementById('current-stream');
     if (!content || !isStreamActive) return;
-    if (timestamp - lastRenderTimestamp >= 60 && content.dataset.rendered !== incomingTargetText) {
+    const interval = Math.max(48, Math.min(180, renderCost * 6));
+    if (timestamp - lastRenderTimestamp >= interval && lastRenderedText !== incomingTargetText) {
         lastRenderTimestamp = timestamp;
-        content.dataset.rendered = incomingTargetText;
-        if (incomingTargetText) content.innerHTML = parseMarkdown(repairIncompleteMarkdown(incomingTargetText));
-        scrollChatToBottom(false);
+        const start = performance.now();
+        if (incomingTargetText) {
+            content.querySelector('.thinking-indicator')?.remove();
+            reconcileStreamHTML(content, parseMarkdown(repairIncompleteMarkdown(incomingTargetText)));
+            setGenerationPhase(content.parentElement, streamPhase);
+        }
+        lastRenderedText = incomingTargetText;
+        renderCost = performance.now() - start;
+        scrollChatToBottom(true);
     }
     // Wait for new data without polling on every frame; keep the target mounted.
-    if (incomingTargetText && content.dataset.rendered !== incomingTargetText) streamAnimationId = requestAnimationFrame(streamRenderLoop);
+    if (incomingTargetText && lastRenderedText !== incomingTargetText) streamAnimationId = requestAnimationFrame(streamRenderLoop);
 }
 
-function finalizeStreamRender(content) {
+function setGenerationPhase(wrapper, phase) {
+    if (wrapper.dataset.generationPhase === phase) return;
+    wrapper.dataset.generationPhase = phase;
+    const label = wrapper.querySelector('.generation-status-label');
+    if (label) label.textContent = t(`motion_${phase}`);
+}
+
+function finalizeStreamRender(content, phase) {
     content.removeAttribute('id');
-    delete content.dataset.rendered;
+    content.querySelector('.thinking-indicator')?.remove();
     const wrapper = content.parentElement;
+    reconcileStreamHTML(content, parseMarkdown(incomingTargetText));
+    settleStreamHTML(content);
     wrapper.classList.remove('streaming');
-    content.innerHTML = parseMarkdown(incomingTargetText);
+    wrapper.setAttribute('aria-busy', 'false');
+    setGenerationPhase(wrapper, phase);
     enhanceCodeBlocks(content);
     enhanceTables(content);
     enhanceImages(content);
     wrapper.querySelectorAll('.assistant-actions').forEach(el => el.remove());
     appendAssistantActions(wrapper, content, incomingTargetText);
+    animateElement(wrapper.querySelector('.assistant-actions'), [{ opacity: 0, transform: 'translateY(3px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 240 });
     if (window.lucide) window.lucide.createIcons();
-    scrollChatToBottom(false);
+    scrollChatToBottom(true);
 }

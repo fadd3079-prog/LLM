@@ -7,6 +7,14 @@ const LANG_KEY = 'ai_workspace_lang';
 
 const DICTIONARY = {
     id: {
+        motion_thinking: 'Berpikir',
+        motion_waiting: 'Menunggu respons model',
+        motion_searching: 'Mencari sumber',
+        motion_audio: 'Membuat audio',
+        motion_writing: 'Menulis',
+        motion_complete: 'Selesai',
+        motion_stopped: 'Dihentikan',
+        motion_error: 'Gagal',
         new_chat: 'Chat baru',
         hero_title: 'Ada yang ingin dikerjakan?',
         hero_eyebrow: 'RUANG KERJA PRIBADI',
@@ -61,6 +69,14 @@ const DICTIONARY = {
         prompt_updated_toast: 'Prompt diupdate, AI generate respon baru...'
     },
     en: {
+        motion_thinking: 'Thinking',
+        motion_waiting: 'Waiting for the model',
+        motion_searching: 'Searching sources',
+        motion_audio: 'Creating audio',
+        motion_writing: 'Writing',
+        motion_complete: 'Complete',
+        motion_stopped: 'Stopped',
+        motion_error: 'Failed',
         new_chat: 'New chat',
         hero_title: 'What would you like to work on?',
         hero_eyebrow: 'YOUR PERSONAL WORKSPACE',
