@@ -62,6 +62,18 @@ Tes browser memakai respons provider simulasi; tidak mengirim key atau memakai k
 
 Setelah mengubah versi dependensi, jalankan `npm run vendor` dan commit file `vendor/` yang dihasilkan. `scripts/icons.mjs` menghasilkan subset ikon Lucide yang digunakan aplikasi. `package-lock.json` mengunci instalasi untuk pengembangan dan CI.
 
+## Interaksi dan animasi
+
+Indikator AI mengikuti fase permintaan: menunggu, berpikir, menulis, selesai, dihentikan, atau gagal. Teks yang sudah tampil mempertahankan node DOM-nya; hanya tambahan teks yang mendapat fade singkat. Pemrosesan Markdown digabung per frame dan frekuensinya menyesuaikan biaya render. Tidak ada jeda mengetik buatan setelah respons provider selesai.
+
+Gelombang berpikir, kursor, transisi panel, dan tombol memakai opacity/transform. Auto-scroll mengikuti output dengan requestAnimationFrame dan berhenti ketika pengguna menggulir ke atas. Tombol ke pesan terbaru mengaktifkannya kembali. Pengaturan `prefers-reduced-motion` mematikan efek dekoratif dan menyelesaikan animasi aktif.
+
+```bash
+npm run perf:motion
+```
+
+Benchmark lokal menyimulasikan streaming sekitar 6.500 karakter pada viewport desktop dan ponsel, lalu melaporkan cadence requestAnimationFrame, interval frame persentil ke-95, dan long task. Target animasi 60 FPS; pengukuran headless ini bukan jaminan performa layar/GPU semua perangkat. Tidak ada dependensi animasi runtime tambahan.
+
 ## GitHub Pages
 
 Publikasikan root branch yang dipilih melalui **Settings → Pages**. Semua path runtime relatif sehingga aplikasi dapat dilayani di `/LLM/` maupun root domain. Berkas `vendor/` sudah disertakan; tidak diperlukan build atau environment variable. Server `npm start` hanya untuk pengembangan dan tidak dibutuhkan GitHub Pages.

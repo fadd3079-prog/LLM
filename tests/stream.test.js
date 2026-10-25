@@ -76,3 +76,17 @@ test('OpenAI reasoning requests omit unsupported sampling and use completion tok
     assert.equal(payload.temperature, undefined);
     assert.equal(result, 'Siap');
 });
+
+test('stream phase metadata distinguishes reasoning from visible answer text', async t => {
+    const events = [
+        { reasoning_content: 'Menganalisis konteks' },
+        { content: 'Jawaban yang siap dibaca' }
+    ].map(delta => `data: ${JSON.stringify({ choices: [{ delta }] })}\n\n`).join('');
+    t.mock.method(globalThis, 'fetch', async () => new Response(events + 'data: [DONE]\n\n'));
+    const phases = [];
+    await streamChat([], 'custom', '', 'test', (_, meta) => phases.push(meta), () => {}, assert.fail);
+    assert.deepEqual(phases, [
+        { hasOutput: false, hasReasoning: true },
+        { hasOutput: true, hasReasoning: true }
+    ]);
+});

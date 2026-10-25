@@ -11,6 +11,7 @@ export function initInputUI(onSendMessage, onStopGeneration) {
     const imagePreviewTray = document.getElementById('image-preview-tray');
     const dropOverlay = document.getElementById('drop-overlay');
 
+    btnSend.innerHTML = '<span class="send-glyph send-glyph-arrow" aria-hidden="true"><i data-lucide="arrow-up"></i></span><span class="send-glyph send-glyph-stop" aria-hidden="true"><i data-lucide="square"></i></span>';
     let isGeneratingState = false;
     let isWebSearchActive = false;
     let processingFiles = [];
@@ -440,17 +441,16 @@ export function initInputUI(onSendMessage, onStopGeneration) {
         },
         setGenerating: (isGenerating) => {
             isGeneratingState = isGenerating;
+            document.querySelector('.input-wrapper')?.classList.toggle('is-generating', isGenerating);
             if (isGenerating) {
                 btnSend.disabled = false;
                 btnSend.classList.add('btn-stop');
                 btnSend.title = 'Stop respon';
                 btnSend.setAttribute('aria-label', 'Stop respon');
-                btnSend.innerHTML = '<i data-lucide="square"></i>';
             } else {
                 btnSend.classList.remove('btn-stop');
                 btnSend.title = 'Kirim Pesan';
                 btnSend.setAttribute('aria-label', 'Kirim Pesan');
-                btnSend.innerHTML = '<i data-lucide="arrow-up"></i>';
                 updateSendButtonState();
             }
             if (typeof lucide !== 'undefined') {

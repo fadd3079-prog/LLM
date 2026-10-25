@@ -56,10 +56,6 @@
     }
 }
 
-.message-wrapper.streaming {
-    animation: none !important;
-    transform: none !important;
-}
 
 @keyframes toastSlideIn {
     from {
@@ -136,3 +132,135 @@
     }
 }
 
+
+/* Motion is intentionally small. Continuous effects use opacity/transform;
+   existing text, layout dimensions and shadows never animate per token. */
+:root {
+    --motion-ease: cubic-bezier(.22, 1, .36, 1);
+    --motion-fast: 160ms;
+    --motion-enter: 280ms;
+}
+.generation-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 4px;
+    color: var(--color-mute);
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+.generation-status-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+}
+.streaming .generation-status-dot {
+    color: var(--color-coral);
+    animation: statusBreath 1.6s ease-in-out infinite;
+}
+[data-generation-phase="complete"] .generation-status-dot {
+    width: 9px;
+    height: 5px;
+    border-radius: 0;
+    border: solid currentColor;
+    border-width: 0 0 1.5px 1.5px;
+    background: transparent;
+    transform: translateY(-1px) rotate(-45deg);
+}
+[data-generation-phase="error"] .generation-status { color: var(--color-error); }
+.thinking-indicator {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 56px;
+    padding: 8px 0;
+    color: var(--color-mute);
+}
+.thinking-signal { display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 28px; height: 24px; flex-shrink: 0; }
+.thinking-signal span {
+    width: 3px;
+    height: 16px;
+    border-radius: 3px;
+    background: var(--color-ink);
+    transform-origin: center;
+    animation: thinkingWave 1.25s ease-in-out infinite;
+}
+.thinking-signal span:nth-child(2) { animation-delay: 120ms; }
+.thinking-signal span:nth-child(3) { animation-delay: 240ms; }
+.thinking-signal span:nth-child(4) { animation-delay: 360ms; }
+.thinking-caption { font-size: 13px; font-weight: 400; letter-spacing: -.01em; }
+.stream-ink { animation: none; }
+.streaming .message-content { min-height: 56px; }
+.message-header { flex-wrap: wrap; row-gap: 4px; }
+.message-wrapper[data-generation-phase="writing"] > .message-content > :last-child:is(p, h1, h2, h3, blockquote)::after,
+.message-wrapper[data-generation-phase="writing"] > .message-content > :last-child:is(ol, ul) > li:last-child::after {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 1em;
+    margin-left: 5px;
+    border-radius: 2px;
+    vertical-align: -.12em;
+    background: var(--color-coral);
+    animation: cursorBreath 1.1s ease-in-out infinite;
+}
+.send-btn { position: relative; overflow: hidden; transition: transform 180ms var(--motion-ease), opacity 180ms ease, background-color 160ms ease; }
+.send-btn.btn-stop { animation: none; }
+.send-glyph { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; transition: opacity 180ms ease, transform 220ms var(--motion-ease); }
+.send-glyph svg { width: 17px; height: 17px; }
+.send-glyph-arrow { opacity: 1; transform: translateY(0) scale(1); }
+.send-glyph-stop { opacity: 0; transform: translateY(8px) scale(.65) rotate(-45deg); }
+.btn-stop .send-glyph-arrow { opacity: 0; transform: translateY(-8px) scale(.7); }
+.btn-stop .send-glyph-stop { opacity: 1; transform: translateY(0) scale(.8) rotate(0); }
+.input-wrapper { transition: border-color 200ms ease; }
+.input-wrapper.is-generating { border-color: var(--color-hairline-strong); }
+.icon-button, .action-pill, .nav-button, .chat-item-btn, .setup-link {
+    transition: transform var(--motion-fast) var(--motion-ease), color var(--motion-fast) ease, background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, opacity var(--motion-fast) ease;
+}
+@media (hover: hover) and (pointer: fine) {
+    .action-pill:hover, .setup-link:hover { transform: translateY(-2px); }
+    .icon-button:hover:not(:disabled) { transform: translateY(-1px); }
+}
+.icon-button:active:not(:disabled), .action-pill:active, .nav-button:active, .setup-link:active { transform: scale(.96); }
+.chat-item:active { transform: scale(.99); }
+.chat-item { transition: background-color 160ms ease, border-color 160ms ease, transform 160ms var(--motion-ease); }
+.header-model-popover { animation: surfaceEnter 200ms var(--motion-ease); transform-origin: top left; }
+.settings-modal[open] { animation: surfaceEnter 260ms var(--motion-ease); }
+.attachment-chip.loading-chip { animation: chipEnter 220ms var(--motion-ease); }
+.ai-image-wrapper::before { animation: none; }
+@keyframes thinkingWave {
+    0%, 100% { transform: scaleY(.35); opacity: .35; }
+    45% { transform: scaleY(1); opacity: .85; }
+}
+@keyframes statusBreath {
+    0%, 100% { transform: scale(.8); opacity: .45; }
+    50% { transform: scale(1.15); opacity: 1; }
+}
+@keyframes cursorBreath { 0%, 100% { opacity: .25; } 50% { opacity: .85; } }
+@keyframes surfaceEnter {
+    from { opacity: 0; transform: translateY(6px) scale(.985); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+/* Entry effects run only when the empty state becomes visible. */
+.empty-state .hero-eyebrow { animation: welcomeEnter 420ms var(--motion-ease) backwards; }
+.empty-state .hero-title { animation: welcomeEnter 500ms var(--motion-ease) 40ms backwards; }
+.empty-state .hero-subtitle, .empty-state .setup-link { animation: welcomeEnter 500ms var(--motion-ease) 90ms backwards; }
+.action-pills-row .action-pill { animation: welcomeEnter 420ms var(--motion-ease) 100ms backwards; }
+.action-pills-row .action-pill:nth-child(2) { animation-delay: 130ms; }
+.action-pills-row .action-pill:nth-child(3) { animation-delay: 160ms; }
+.action-pills-row .action-pill:nth-child(4) { animation-delay: 190ms; }
+.action-pills-row .action-pill:nth-child(5) { animation-delay: 220ms; }
+@keyframes welcomeEnter {
+    from { opacity: 0; transform: translateY(7px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+    .thinking-signal span { transform: scaleY(.65); opacity: .6; }
+    .generation-status-dot { opacity: 1; }
+    .message-wrapper[data-generation-phase="writing"] > .message-content :is(p, h1, h2, h3, blockquote, li)::after { display: none; }
+}
