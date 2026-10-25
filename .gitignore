@@ -1,8 +1,8 @@
-AGENTS.md
-DESIGN.md
+node_modules/
+test-results/
+playwright-report/
 .env
 .env.*
 *.local
-node_modules/
 dist/
 build/

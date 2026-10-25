@@ -4,14 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+        content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>AI Workspace</title>
     <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-        rel="stylesheet">
+    <meta name="description" content="Ruang kerja AI dengan API key Anda sendiri. Chat, analisis dokumen, dan kelola percakapan langsung dari browser.">
+    <meta name="referrer" content="no-referrer">
     <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/base.css">
     <link rel="stylesheet" href="css/layout.css">
@@ -19,12 +16,9 @@
     <link rel="stylesheet" href="css/modal.css">
     <link rel="stylesheet" href="css/animations.css">
     <link rel="stylesheet" href="css/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script defer src="vendor/marked.min.js"></script>
+    <script defer src="vendor/purify.min.js"></script>
+    <script defer src="vendor/lucide.min.js"></script>
 </head>
 
 <body>
@@ -85,7 +79,7 @@
         <main id="main-content" class="app-main main-content main-container is-empty">
             <header class="main-header">
                 <div class="header-left">
-                    <button id="btn-open-sidebar" class="icon-button" aria-label="Buka Sidebar" title="Buka Sidebar">
+                    <button id="btn-open-sidebar" class="icon-button" aria-controls="sidebar" aria-expanded="false" aria-label="Buka Sidebar" title="Buka Sidebar">
                         <i data-lucide="menu"></i>
                     </button>
                     <div class="header-model-selector" id="header-model-selector">
@@ -125,31 +119,24 @@
                 </div>
             </header>
 
-            <div id="top-announcement-bar" class="top-announcement-bar">
-                <a href="#" id="banner-announcement-link" class="announcement-link">
-                    <span class="announcement-text"></span>
-                    <i data-lucide="arrow-right" class="announcement-arrow"></i>
-                </a>
-            </div>
-
             <div id="drop-overlay" class="drop-overlay hidden" aria-hidden="true">
                 <div class="drop-overlay-box">
                     <div class="drop-icon-wrapper">
                         <i data-lucide="upload-cloud"></i>
                     </div>
                     <p class="drop-title">Lepaskan berkas di sini</p>
-                    <p class="drop-subtitle">Unggah PDF, Presentasi PPTX, Dokumen Word, Excel, Gambar, ZIP, atau Kode</p>
+                    <p class="drop-subtitle">Unggah PDF, PPTX, DOCX, XLSX, gambar, ZIP, atau kode</p>
                 </div>
             </div>
 
-            <div id="chat-canvas" class="chat-canvas" role="log" aria-live="polite" aria-label="Chat Canvas">
+            <div id="chat-canvas" class="chat-canvas" role="log" aria-live="off" aria-label="Percakapan">
                 <div class="chat-canvas-inner">
 
                     <div id="empty-state" class="empty-state">
-                        <h1 class="hero-title">What can I do for you?</h1>
-                        <p class="hero-subtitle">Atur Provider dan API Key di <button
-                                id="btn-open-settings-prompt" class="inline-link-button">Settings</button> untuk
-                            mulai riset</p>
+                        <div class="hero-eyebrow" data-i18n="hero_eyebrow">RUANG KERJA PRIBADI</div>
+                        <h1 class="hero-title" data-i18n="hero_title">Ada yang ingin dikerjakan?</h1>
+                        <p class="hero-subtitle" data-i18n="hero_subtitle">Pilih provider, gunakan API key Anda, dan mulai percakapan.</p>
+                        <button id="btn-open-settings-prompt" class="setup-link"><i data-lucide="sliders-horizontal"></i><span data-i18n="settings">Pengaturan</span><i data-lucide="arrow-up-right"></i></button>
                     </div>
 
                     <div id="messages-container" class="messages-container hidden"></div>
@@ -175,7 +162,7 @@
                                     <i data-lucide="plus"></i>
                                 </button>
                                 <button id="btn-web-search" class="icon-button web-search-btn" aria-label="Web Search"
-                                    title="Web Search Aktif (Live browsing internet)" data-i18n-title="web_search_active" aria-pressed="false">
+                                    title="Pencarian web (biaya provider dapat berlaku)" aria-pressed="false">
                                     <i data-lucide="globe"></i>
                                 </button>
                                 <input type="file" id="file-input" class="hidden" accept="*" multiple>
@@ -189,31 +176,32 @@
                         </div>
                     </div>
 
+                    <p class="composer-note" data-i18n="composer_note">API key milik Anda. Riwayat tersimpan di perangkat ini.</p>
                     <div id="action-pills-row" class="action-pills-row">
                         <button type="button" class="action-pill"
                             data-prompt="Tolong buatkan ringkasan eksekutif dan draft slide presentasi profesional dari teks/dokumen berikut:&#10;&#10;1. Executive Summary (2-3 kalimat)&#10;2. Key Takeaways & Data Penting&#10;3. Rekomendasi & Action Plan&#10;&#10;[Tempelkan teks atau dokumen di sini]">
                             <i data-lucide="presentation" class="pill-icon"></i>
-                            <span>Create slides</span>
+                            <span data-i18n="summarize">Ringkas dokumen</span>
                         </button>
                         <button type="button" class="action-pill"
                             data-prompt="Lakukan riset web mendalam dan analisis komprehensif mengenai topik berikut:&#10;&#10;[Tuliskan topik riset di sini]&#10;&#10;Sertakan data perbandingan objektif, sumber fakta, dan ringkasan insight strategis."
                             data-web-search="true">
                             <i data-lucide="globe" class="pill-icon"></i>
-                            <span>Deep research</span>
+                            <span data-i18n="explore">Jelajahi ide</span>
                         </button>
                         <button type="button" class="action-pill"
                             data-prompt="Tolong tinjau, refactor, dan optimalkan kode berikut agar bersih, aman, modular, dan efisien:&#10;&#10;```&#10;[Tempelkan kode di sini]&#10;```&#10;&#10;Sertakan penjelasan singkat tentang poin perbaikan yang dilakukan.">
                             <i data-lucide="code" class="pill-icon"></i>
-                            <span>Build & code</span>
+                            <span data-i18n="review_code">Tinjau kode</span>
                         </button>
                         <button type="button" class="action-pill"
                             data-prompt="Bantu saya membedah dan mencari solusi masalah berikut:&#10;- Masalah: [Jelaskan masalah secara ringkas]&#10;- Konteks: [Konteks atau kendala yang dihadapi]&#10;&#10;Sajikan analisis akar masalah (root cause) serta opsi alternatif solusi dan trade-off nya.">
                             <i data-lucide="sparkles" class="pill-icon"></i>
-                            <span>Problem solving</span>
+                            <span data-i18n="solve">Pecahkan masalah</span>
                         </button>
                         <button type="button" class="action-pill action-pill-settings" id="btn-pill-settings">
                             <i data-lucide="sliders-horizontal" class="pill-icon"></i>
-                            <span>Settings</span>
+                            <span data-i18n="settings">Pengaturan</span>
                         </button>
                     </div>
                 </div>
@@ -401,9 +389,9 @@
                             </div>
 
                             <div class="input-group hidden" id="custom-base-url-group">
-                                <label for="modal-base-url">Base URL</label>
+                                <label for="modal-base-url">Base URL / Proxy</label>
                                 <input type="text" id="modal-base-url" placeholder="https://api.example.com/v1" autocomplete="off" />
-                                <span class="field-hint">Endpoint API yang kompatibel dengan format OpenAI (contoh: http://localhost:11434/v1).</span>
+                                <span class="field-hint">Alamat provider atau proxy Anda sendiri. API key dikirim ke alamat ini. Kosongkan untuk memakai alamat default.</span>
                             </div>
 
                             <div class="input-group" id="api-key-input-group">
@@ -422,7 +410,7 @@
                                         <i data-lucide="eye"></i>
                                     </button>
                                 </div>
-                                <span class="field-hint" id="modal-api-key-hint">API Key tersimpan aman secara privat di LocalStorage browser Anda.</span>
+                                <span class="field-hint" id="modal-api-key-hint">API key disimpan di browser ini dan dikirim ke provider yang Anda pilih.</span>
                             </div>
 
                             <div class="input-group">
@@ -434,8 +422,16 @@
                                             placeholder="Cari atau filter model AI..." autocomplete="off">
                                         <i data-lucide="chevron-down" class="dropdown-icon"></i>
                                     </div>
-                                    <ul id="modal-model-dropdown" class="dropdown-list hidden"></ul>
+                                    <ul id="modal-model-dropdown" class="dropdown-list hidden" role="listbox" aria-label="Model AI"></ul>
                                 </div>
+                            </div>
+                            <div class="input-group">
+                                <label for="modal-model-id">Model ID manual</label>
+                                <div class="manual-model-row">
+                                    <input id="modal-model-id" type="text" autocomplete="off" spellcheck="false" placeholder="Contoh: nama-model">
+                                    <button id="btn-use-model-id" class="primary-button" type="button">Gunakan</button>
+                                </div>
+                                <span class="field-hint">Gunakan ID dari provider jika katalog tidak tersedia. Model dalam daftar awal belum tentu tersedia pada akun Anda.</span>
                             </div>
                         </div>
                     </div>
@@ -532,6 +528,7 @@
         </div>
     </dialog>
 
+    <noscript><p class="noscript-note">Aktifkan JavaScript untuk menggunakan AI Workspace.</p></noscript>
     <div id="toast-container" class="toast-container" aria-live="polite"></div>
     <script type="module" src="js/app.js"></script>
 </body>

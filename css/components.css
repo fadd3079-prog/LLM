@@ -230,9 +230,6 @@
     line-height: 1.5;
     margin-bottom: 8px;
 }
-    width: 100%;
-    max-width: 620px;
-}
 
 .suggestion-card {
     background-color: var(--color-surface);

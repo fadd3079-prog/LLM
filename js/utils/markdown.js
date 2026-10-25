@@ -1,81 +1,27 @@
-let isMarkedConfigured = false;
-
-function ensureMarkedConfigured() {
-    if (isMarkedConfigured) return;
-
-    if (typeof marked !== 'undefined') {
-        const renderer = new marked.Renderer();
-
-        renderer.link = function (href, title, text) {
-            let actualHref = href;
-            let actualTitle = title;
-            let actualText = text;
-
-            // Dukungan kompabilitas marked modern ({ href, title, text }) dan versi legacy (href, title, text)
-            if (typeof href === 'object' && href !== null) {
-                actualHref = href.href;
-                actualTitle = href.title;
-                actualText = href.text;
-            }
-
-            // Block javascript: URLs
-            if (actualHref && /^javascript:/i.test(actualHref.trim())) {
-                actualHref = '#';
-            }
-
-            // Ensure href is safe - only allow http, https, mailto, tel
-            if (actualHref && !/^(https?:\/\/|mailto:|tel:|#)/i.test(actualHref.trim())) {
-                actualHref = '#';
-            }
-
-            const titleAttr = actualTitle ? ` title="${String(actualTitle).replace(/"/g, '&quot;')}"` : '';
-            return `<a href="${actualHref || '#'}"${titleAttr} target="_blank" rel="noopener noreferrer">${actualText || actualHref || ''}</a>`;
-        };
-
-        marked.use({
-            breaks: true,
-            gfm: true,
-            renderer
-        });
-
-        isMarkedConfigured = true;
-    }
+export function escapeHTML(value) {
+    return String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 }
-
-// Hook DOMPurify agar selalu menyertakan target="_blank" & rel="noopener noreferrer" pada tag <a>
-if (typeof DOMPurify !== 'undefined' && typeof DOMPurify.addHook === 'function') {
-    DOMPurify.addHook('afterSanitizeAttributes', function (node) {
-        if (node.tagName === 'A' && node.hasAttribute('href')) {
-            node.setAttribute('target', '_blank');
-            node.setAttribute('rel', 'noopener noreferrer');
-        }
-    });
-}
-
+let configured = false;
 export function parseMarkdown(text) {
     if (!text) return '';
-    ensureMarkedConfigured();
-
-    // Graceful fallback if marked or DOMPurify failed to load
-    if (typeof marked === 'undefined') {
-        const escaped = String(text)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
-        return `<pre>${escaped}</pre>`;
+    // Fail closed if either local dependency failed to load.
+    if (!globalThis.marked || !globalThis.DOMPurify) return `<pre>${escapeHTML(text)}</pre>`;
+    if (!configured) {
+        const renderer = new marked.Renderer();
+        renderer.link = function(token) {
+            const href = /^(https?:\/\/|mailto:|tel:|#)/i.test(token.href || '') ? token.href : '#';
+            const label = token.tokens ? this.parser.parseInline(token.tokens) : escapeHTML(token.text || href);
+            return `<a href="${escapeHTML(href)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+        };
+        marked.use({ breaks: true, gfm: true, renderer });
+        DOMPurify.addHook('afterSanitizeAttributes', node => {
+            if (node.tagName === 'A') { node.setAttribute('target', '_blank'); node.setAttribute('rel', 'noopener noreferrer'); }
+        });
+        configured = true;
     }
-
-    if (typeof DOMPurify === 'undefined') {
-        // If DOMPurify not available, at least escape the output
-        const rawHtml = marked.parse(text);
-        return rawHtml;
-    }
-
-    // Support ==text== highlight syntax (similar to Obsidian, Bear, and MS Word highlighting)
-    const withHighlights = text.replace(/==([^=\r\n]+)==/g, '<mark>$1</mark>');
-    const rawHtml = marked.parse(withHighlights);
-    return DOMPurify.sanitize(rawHtml, {
-        ADD_TAGS: ['mark'],
+    return DOMPurify.sanitize(marked.parse(String(text)), {
+        FORBID_TAGS: ['style', 'form', 'input', 'button', 'textarea', 'select'],
+        FORBID_ATTR: ['style', 'id', 'name'],
         ADD_ATTR: ['target', 'rel']
     });
 }

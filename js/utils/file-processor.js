@@ -1,3 +1,4 @@
+import { ensureZip, ensurePdf } from './dependencies.js';
 export function formatBytes(bytes) {
     if (!bytes || bytes === 0) return '0 B';
     const k = 1024;
@@ -33,9 +34,16 @@ export function getFileCategory(file) {
 }
 
 export function validateFile(file) {
-    const maxSize = 50 * 1024 * 1024; // 50MB
+    const maxSize = 20 * 1024 * 1024; // Bound browser memory usage.
     if (file.size > maxSize) {
-        return { valid: false, error: `Berkas "${file.name}" terlalu besar (maksimal 50MB).` };
+        return { valid: false, error: `Berkas "${file.name}" terlalu besar (maksimal 20MB).` };
+    }
+    const ext = (file.name || '').split('.').pop().toLowerCase();
+    if (['doc', 'ppt', 'xls', 'odt', 'odp', 'ods', 'rtf', 'ppsx', 'rar', '7z', 'tar', 'gz', 'svg', 'bmp'].includes(ext)) {
+        return { valid: false, error: 'Format belum didukung. Gunakan PDF, PPTX, DOCX, XLSX, CSV, ZIP, PNG/JPG/WebP/GIF, atau berkas teks.' };
+    }
+    if (getFileCategory(file) === 'text' && file.type && !file.type.startsWith('text/') && !/json|javascript|xml/.test(file.type) && !/^(js|ts|tsx|jsx|py|c|cpp|h|java|php|rs|go|sql|sh|md|yaml|yml|toml|ini|log)$/.test(ext)) {
+        return { valid: false, error: 'Berkas biner ini belum dapat dibaca. Konversikan ke teks atau PDF.' };
     }
     if (file.size === 0) {
         return { valid: false, error: `Berkas "${file.name}" kosong.` };
@@ -86,6 +94,16 @@ function decodeXmlEntities(str) {
     return result;
 }
 
+function limitText(text) {
+    const limit = 200000;
+    return text.length > limit ? text.slice(0, limit) + '\n[Isi dipotong pada 200.000 karakter.]' : text;
+}
+function validateArchive(zip) {
+    const entries = Object.values(zip.files);
+    const total = entries.reduce((sum, entry) => sum + (entry._data?.uncompressedSize || 0), 0);
+    if (entries.length > 2000 || total > 40 * 1024 * 1024) throw new Error('Arsip melebihi batas ekstraksi (2.000 entri / 40 MB).');
+}
+
 async function extractPptx(file, sizeFormatted) {
     let textContent = '';
     let slideCount = 0;
@@ -102,6 +120,7 @@ async function extractPptx(file, sizeFormatted) {
     try {
         const buffer = await file.arrayBuffer();
         const zip = await window.JSZip.loadAsync(buffer);
+        validateArchive(zip);
 
         const slideEntries = [];
         zip.forEach((relPath) => {
@@ -121,11 +140,11 @@ async function extractPptx(file, sizeFormatted) {
             const xml = await zip.file(s.path).async('string');
 
             const paragraphs = [];
-            const pRegex = /<[a-zA-Z0-9_:]*p[\s>]([\s\S]*?)<\/[a-zA-Z0-9_:]*p>/gi;
+            const pRegex = /<(?:[a-zA-Z0-9_]+:)?p(?:\s[^>]*)?>([\s\S]*?)<\/(?:[a-zA-Z0-9_]+:)?p>/gi;
             let pMatch;
             while ((pMatch = pRegex.exec(xml)) !== null) {
                 const pContent = pMatch[1];
-                const tRegex = /<[a-zA-Z0-9_:]*t[\s>]([^<]*)<\/[a-zA-Z0-9_:]*t>/gi;
+                const tRegex = /<(?:[a-zA-Z0-9_]+:)?t(?:\s[^>]*)?>([^<]*)<\/(?:[a-zA-Z0-9_]+:)?t>/gi;
                 let tMatch;
                 let lineText = '';
                 while ((tMatch = tRegex.exec(pContent)) !== null) {
@@ -143,7 +162,7 @@ async function extractPptx(file, sizeFormatted) {
             if (notesFile) {
                 try {
                     const notesXml = await notesFile.async('string');
-                    const nRegex = /<[a-zA-Z0-9_:]*t[\s>]([^<]*)<\/[a-zA-Z0-9_:]*t>/gi;
+                    const nRegex = /<(?:[a-zA-Z0-9_]+:)?t(?:\s[^>]*)?>([^<]*)<\/(?:[a-zA-Z0-9_]+:)?t>/gi;
                     let nMatch;
                     let nLine = '';
                     while ((nMatch = nRegex.exec(notesXml)) !== null) {
@@ -201,6 +220,7 @@ async function extractDocx(file, sizeFormatted) {
     try {
         const buffer = await file.arrayBuffer();
         const zip = await window.JSZip.loadAsync(buffer);
+        validateArchive(zip);
         const docFile = zip.file('word/document.xml');
         if (!docFile) {
             return { textContent: `[Dokumen Word ${file.name} tidak memiliki struktur XML standar]` };
@@ -208,11 +228,11 @@ async function extractDocx(file, sizeFormatted) {
 
         const xml = await docFile.async('string');
         const paragraphs = [];
-        const pRegex = /<[a-zA-Z0-9_:]*p[\s>]([\s\S]*?)<\/[a-zA-Z0-9_:]*p>/gi;
+        const pRegex = /<(?:[a-zA-Z0-9_]+:)?p(?:\s[^>]*)?>([\s\S]*?)<\/(?:[a-zA-Z0-9_]+:)?p>/gi;
         let pMatch;
         while ((pMatch = pRegex.exec(xml)) !== null) {
             const pContent = pMatch[1];
-            const tRegex = /<[a-zA-Z0-9_:]*t[\s>]([^<]*)<\/[a-zA-Z0-9_:]*t>/gi;
+            const tRegex = /<(?:[a-zA-Z0-9_]+:)?t(?:\s[^>]*)?>([^<]*)<\/(?:[a-zA-Z0-9_]+:)?t>/gi;
             let tMatch;
             let lineText = '';
             while ((tMatch = tRegex.exec(pContent)) !== null) {
@@ -230,83 +250,42 @@ async function extractDocx(file, sizeFormatted) {
     return { textContent };
 }
 
-async function extractXlsx(file, sizeFormatted) {
-    let textContent = '';
-    if (!window.JSZip) {
-        return { textContent: `[Berkas Spreadsheet: ${file.name} (${sizeFormatted})]` };
-    }
-
-    try {
-        const buffer = await file.arrayBuffer();
-        const zip = await window.JSZip.loadAsync(buffer);
-
-        const sharedStrings = [];
-        const ssFile = zip.file('xl/sharedStrings.xml');
-        if (ssFile) {
-            const ssXml = await ssFile.async('string');
-            const siRegex = /<si>([\s\S]*?)<\/si>/gi;
-            let siMatch;
-            while ((siMatch = siRegex.exec(ssXml)) !== null) {
-                const tRegex = /<t[^>]*>([^<]*)<\/t>/gi;
-                let tMatch;
-                let sText = '';
-                while ((tMatch = tRegex.exec(siMatch[1])) !== null) {
-                    sText += tMatch[1];
-                }
-                sharedStrings.push(decodeXmlEntities(sText));
+async function extractXlsx(file) {
+    const zip = await window.JSZip.loadAsync(await file.arrayBuffer());
+    validateArchive(zip);
+    const parse = xml => new DOMParser().parseFromString(xml, 'application/xml');
+    const text = node => [...node.getElementsByTagName('t')].map(el => el.textContent).join('');
+    const sharedFile = zip.file('xl/sharedStrings.xml');
+    const shared = sharedFile ? [...parse(await sharedFile.async('string')).getElementsByTagName('si')].map(text) : [];
+    const sheetFiles = Object.keys(zip.files).filter(path => /^xl\/worksheets\/sheet\d+\.xml$/i.test(path)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    const blocks = [];
+    for (const [index, path] of sheetFiles.slice(0, 3).entries()) {
+        const doc = parse(await zip.file(path).async('string'));
+        const lines = [];
+        for (const row of [...doc.getElementsByTagName('row')].slice(0, 100)) {
+            const cells = [];
+            for (const cell of row.getElementsByTagName('c')) {
+                const address = cell.getAttribute('r') || '';
+                const column = [...address.replace(/\d+/g, '')].reduce((n, c) => n * 26 + c.charCodeAt(0) - 64, 0) - 1;
+                if (column < 0 || column > 255) continue;
+                const type = cell.getAttribute('t');
+                const value = cell.getElementsByTagName('v')[0]?.textContent || '';
+                cells[column] = type === 's' ? shared[Number(value)] || '' : type === 'inlineStr' ? text(cell) : value;
             }
+            if (cells.some(Boolean)) lines.push(Array.from({ length: cells.length }, (_, i) => cells[i] || '').join(' | '));
         }
-
-        const sheetFiles = [];
-        zip.forEach((relPath) => {
-            if (/^xl\/worksheets\/sheet\d+\.xml$/i.test(relPath)) {
-                sheetFiles.push(relPath);
-            }
-        });
-
-        let fullSheetsText = '';
-        for (let sIdx = 0; sIdx < Math.min(sheetFiles.length, 3); sIdx++) {
-            const sPath = sheetFiles[sIdx];
-            const sheetXml = await zip.file(sPath).async('string');
-            fullSheetsText += `--- Sheet ${sIdx + 1} ---\n`;
-
-            const rowRegex = /<row[^>]*>([\s\S]*?)<\/row>/gi;
-            let rowMatch;
-            let rowCount = 0;
-            while ((rowMatch = rowRegex.exec(sheetXml)) !== null && rowCount < 100) {
-                rowCount++;
-                const cRegex = /<c\s+r="([A-Z0-9]+)"(?:\s+t="([a-z]+)")?[^>]*>(?:<v>([^<]*)<\/v>)?/gi;
-                let cMatch;
-                const rowCells = [];
-                while ((cMatch = cRegex.exec(rowMatch[1])) !== null) {
-                    const type = cMatch[2];
-                    const val = cMatch[3] || '';
-                    if (type === 's') {
-                        const sNum = parseInt(val, 10);
-                        rowCells.push(sharedStrings[sNum] || '');
-                    } else {
-                        rowCells.push(decodeXmlEntities(val));
-                    }
-                }
-                if (rowCells.some(c => c.trim())) {
-                    fullSheetsText += rowCells.join(' | ') + '\n';
-                }
-            }
-            fullSheetsText += '\n';
-        }
-
-        textContent = fullSheetsText;
-    } catch (err) {
-        textContent = `[Gagal mengekstrak berkas Excel: ${err.message}]`;
+        blocks.push(`--- Sheet ${index + 1} ---\n${lines.join('\n')}`);
     }
-
-    return { textContent };
+    if (sheetFiles.length > 3) blocks.push('[Dibatasi pada 3 sheet pertama dan 100 baris per sheet.]');
+    return { textContent: limitText(blocks.join('\n\n')) };
 }
 
 async function extractPdf(file, sizeFormatted) {
     let textContent = '';
     let pageCount = 0;
     const pageImages = [];
+    let pdf;
+    let loadingTask;
 
     if (!window.pdfjsLib) {
         return {
@@ -318,25 +297,28 @@ async function extractPdf(file, sizeFormatted) {
 
     // Resource limits
     const MAX_PAGES_TEXT = 30;
-    const MAX_PAGES_RENDER = 20;
+    const MAX_PAGES_RENDER = 8;
     const MAX_RENDER_SCALE = 1.6;
     const MAX_RENDER_WIDTH = 2000;
     const MAX_RENDER_HEIGHT = 2800;
     const MAX_TEXT_CHARS = 500000;
-    const MAX_PAGE_IMAGES = 15;
+    const MAX_PAGE_IMAGES = 8;
 
     try {
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('../../vendor/pdf.worker.min.mjs', import.meta.url).href;
         const buffer = await file.arrayBuffer();
 
-        const loadingTask = window.pdfjsLib.getDocument({
+        loadingTask = window.pdfjsLib.getDocument({
             data: buffer,
-            cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+            cMapUrl: new URL('../../vendor/cmaps/', import.meta.url).href,
             cMapPacked: true,
-            standardFontDataUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/standard_fonts/'
+            standardFontDataUrl: new URL('../../vendor/standard_fonts/', import.meta.url).href,
+            wasmUrl: new URL('../../vendor/wasm/', import.meta.url).href,
+            iccUrl: new URL('../../vendor/iccs/', import.meta.url).href,
+            isEvalSupported: false
         });
 
-        const pdf = await loadingTask.promise;
+        pdf = await loadingTask.promise;
         pageCount = pdf.numPages;
         const maxPages = Math.min(pdf.numPages, MAX_PAGES_TEXT);
 
@@ -402,14 +384,20 @@ async function extractPdf(file, sizeFormatted) {
             }
         }
     } catch (e) {
-        textContent = `[Dokumen PDF: ${file.name} - Gagal ekstraksi: ${e.message}]`;
+        throw new Error(`Gagal membaca PDF: ${e.message}`);
+    } finally {
+        await loadingTask?.destroy();
     }
 
     return { textContent, pageCount, pageImages };
 }
 
 export async function processFile(file) {
+    const validation = validateFile(file);
+    if (!validation.valid) throw new Error(validation.error);
     const category = getFileCategory(file);
+    if (['presentation', 'document', 'spreadsheet', 'zip'].includes(category) && !/\.(csv|tsv)$/i.test(file.name)) await ensureZip();
+    if (category === 'pdf') await ensurePdf();
     const sizeFormatted = formatBytes(file.size);
     const ext = (file.name || '').split('.').pop().toLowerCase();
     const id = 'att_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
@@ -468,7 +456,7 @@ export async function processFile(file) {
                     category: 'spreadsheet',
                     size: file.size,
                     sizeFormatted,
-                    textContent,
+                    textContent: limitText(textContent),
                     ext
                 };
             } catch (_) {}
@@ -507,6 +495,7 @@ export async function processFile(file) {
         try {
             if (window.JSZip) {
                 const zip = await window.JSZip.loadAsync(file);
+                validateArchive(zip);
                 let tree = `Struktur Berkas Arsip ZIP (${file.name}):\n`;
                 const textEntries = [];
                 let entryCount = 0;
@@ -583,7 +572,7 @@ export async function processFile(file) {
         category: 'text',
         size: file.size,
         sizeFormatted,
-        textContent,
+        textContent: limitText(textContent),
         ext
     };
 }

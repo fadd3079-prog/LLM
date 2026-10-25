@@ -1,5 +1,5 @@
 import { state, saveStore, setProviderModel } from '../store/index.js';
-import { fetchModels, PROVIDERS_CONFIG } from '../api/provider.js';
+import { fetchModels, PROVIDERS_CONFIG, resolveBaseUrl } from '../api/provider.js';
 
 export const CURATED_MODELS_BY_PROVIDER = {
     openrouter: [
@@ -24,19 +24,19 @@ export const CURATED_MODELS_BY_PROVIDER = {
         { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', context_length: 128000 }
     ],
     gemini: [
-        { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Recommended)', context_length: 1000000 },
+        { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', context_length: 1000000 },
         { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Deep Intelligence)', context_length: 2000000 },
         { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', context_length: 1000000 },
         { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', context_length: 2000000 },
         { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', context_length: 1000000 }
     ],
     anthropic: [
-        { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet (Latest)', context_length: 200000 },
+        { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', context_length: 200000 },
         { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', context_length: 200000 },
         { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', context_length: 200000 }
     ],
     groq: [
-        { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B Versatile (Ultra-Fast)', context_length: 128000 },
+        { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B Versatile', context_length: 128000 },
         { id: 'deepseek-r1-distill-llama-70b', name: 'DeepSeek R1 Distill Llama 70B', context_length: 128000 },
         { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B Instant', context_length: 128000 },
         { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B (MoE)', context_length: 32768 },
@@ -69,9 +69,7 @@ export const CURATED_MODELS_BY_PROVIDER = {
     ],
     nvidia: [
         { id: 'meta/llama-3.2-11b-vision-instruct', name: 'Llama 3.2 11B Vision (Fast)', context_length: 128000 },
-        { id: 'moonshotai/kimi-k3', name: 'Kimi K3 (Moonshot AI)', context_length: 128000 },
         { id: 'nvidia/llama-3.1-nemotron-70b-instruct', name: 'Nemotron 70B', context_length: 128000 },
-        { id: 'deepseek-ai/deepseek-v4-pro-0813', name: 'DeepSeek V4 Pro', context_length: 64000 },
         { id: 'mistralai/mistral-large-2-instruct', name: 'Mistral Large 2', context_length: 128000 }
     ],
     cohere: [
@@ -101,7 +99,7 @@ export function initModelSelector({ onModelChange }) {
     const wrapper = modelSearchInput?.closest('.model-selector-wrapper');
 
     function getCuratedForProvider(provider) {
-        return CURATED_MODELS_BY_PROVIDER[provider] || CURATED_MODELS_BY_PROVIDER.openrouter;
+        return CURATED_MODELS_BY_PROVIDER[provider] || [];
     }
 
     if (!state.models || state.models.length === 0) {
@@ -109,21 +107,27 @@ export function initModelSelector({ onModelChange }) {
     }
 
     let catalogRequestSeq = 0;
+    const catalogCache = new Map();
     async function loadModelCatalog() {
         const providerAtRequest = state.config.provider || 'openrouter';
         const apiKey = state.config.apiKey || '';
-        const customBaseUrl = state.config.baseUrl || '';
+        const customBaseUrl = resolveBaseUrl(providerAtRequest, state.config.customBaseUrls?.[providerAtRequest]);
         const mySeq = ++catalogRequestSeq;
 
         try {
-            const list = await fetchModels(providerAtRequest, apiKey, customBaseUrl);
+            const cacheKey = JSON.stringify([providerAtRequest, apiKey, customBaseUrl]);
+            let entry = catalogCache.get(cacheKey);
+            if (!entry || Date.now() - entry.time > 60000) {
+                entry = { time: Date.now(), result: fetchModels(providerAtRequest, apiKey, customBaseUrl) };
+                catalogCache.set(cacheKey, entry);
+            }
+            const list = await entry.result;
             // Buang hasil kalau provider sudah pindah saat kita menunggu.
             if (mySeq !== catalogRequestSeq) return;
             if (state.config.provider !== providerAtRequest) return;
             if (Array.isArray(list) && list.length > 0) {
                 state.models = list;
-                renderModelDropdown(state.models);
-                syncInput();
+                if (document.activeElement !== modelSearchInput) { renderModelDropdown(state.models); syncInput(); }
             }
         } catch (e) {
             if (mySeq !== catalogRequestSeq) return;
@@ -148,6 +152,8 @@ export function initModelSelector({ onModelChange }) {
 
         list.slice(0, 100).forEach(m => {
             const li = document.createElement('li');
+            li.tabIndex = 0;
+            li.setAttribute('role', 'option');
             const isActive = m.id === state.selectedModel;
             li.className = `dropdown-item ${isActive ? 'active' : ''}`;
             const contextText = m.context_length ? `${Math.round(m.context_length / 1000)}k ctx` : '';
@@ -176,6 +182,7 @@ export function initModelSelector({ onModelChange }) {
                 if (onModelChange) onModelChange(m.id);
             });
 
+            li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); li.click(); } });
             modelDropdown.appendChild(li);
         });
     }
@@ -185,7 +192,12 @@ export function initModelSelector({ onModelChange }) {
             const providerModels = state.models?.length ? state.models : getCuratedForProvider(state.config.provider);
             const current = providerModels.find(m => m.id === state.selectedModel);
             modelSearchInput.value = current?.name || state.selectedModel || '';
-            modelSearchInput.disabled = false;
+            modelSearchInput.disabled = Boolean(PROVIDERS_CONFIG[state.config.provider]?.isTTS);
+            const manualInput = document.getElementById('modal-model-id');
+            if (manualInput && document.activeElement !== manualInput) manualInput.value = state.selectedModel || '';
+            if (manualInput) manualInput.disabled = Boolean(PROVIDERS_CONFIG[state.config.provider]?.isTTS);
+            const useModel = document.getElementById('btn-use-model-id');
+            if (useModel) useModel.disabled = Boolean(PROVIDERS_CONFIG[state.config.provider]?.isTTS);
         }
     }
 
@@ -203,13 +215,27 @@ export function initModelSelector({ onModelChange }) {
 
         // Coba load katalog dinamis jika ada API key atau local
         const apiKey = state.config.apiKey;
-        if (cfg.isLocal || apiKey) {
+        if (cfg.isLocal || cfg.isCustom || apiKey) {
             loadModelCatalog();
         }
 
         if (onModelChange) onModelChange(state.selectedModel);
     }
 
+    const manualInput = document.getElementById('modal-model-id');
+    const manualButton = document.getElementById('btn-use-model-id');
+    function applyModelId() {
+        const id = manualInput.value.trim();
+        if (!id || id.length > 250 || /\s/.test(id)) { manualInput.setCustomValidity('Masukkan model ID tanpa spasi.'); manualInput.reportValidity(); return; }
+        manualInput.setCustomValidity('');
+        setProviderModel(state.config.provider, id);
+        syncInput();
+        modelDropdown.classList.add('hidden');
+        onModelChange?.(id);
+    }
+    manualButton?.addEventListener('click', applyModelId);
+    manualInput?.addEventListener('input', () => manualInput.setCustomValidity(''));
+    manualInput?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); applyModelId(); } });
     if (modelSearchInput && modelDropdown) {
         renderModelDropdown(state.models);
         syncInput();
@@ -249,6 +275,10 @@ export function initModelSelector({ onModelChange }) {
             });
         }
 
+        modelSearchInput.addEventListener('keydown', e => {
+            if (e.key === 'Escape') { e.stopPropagation(); modelDropdown.classList.add('hidden'); }
+            if (e.key === 'ArrowDown') { e.preventDefault(); modelDropdown.querySelector('li[tabindex]')?.focus(); }
+        });
         modelSearchInput.addEventListener('input', (e) => {
             const q = e.target.value.toLowerCase().trim();
             const list = state.models || getCuratedForProvider(state.config.provider);

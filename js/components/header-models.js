@@ -1,3 +1,4 @@
+import { PROVIDERS_CONFIG } from '../api/provider.js';
 import { state, saveStore, setProviderModel } from '../store/index.js';
 import { CURATED_MODELS_BY_PROVIDER } from './modal-models.js';
 import { showToast } from '../utils/toast.js';
@@ -17,7 +18,7 @@ export function initHeaderModelSwitcher({ onModelChange, onOpenFullSettings }) {
 
     function getCuratedModels() {
         const provider = state.config.provider || 'openrouter';
-        return CURATED_MODELS_BY_PROVIDER[provider] || CURATED_MODELS_BY_PROVIDER.openrouter || [];
+        return CURATED_MODELS_BY_PROVIDER[provider] || [];
     }
 
     function getAllAvailableModels() {
@@ -68,6 +69,8 @@ export function initHeaderModelSwitcher({ onModelChange, onOpenFullSettings }) {
 
             li.className = `header-model-item ${isActive ? 'active' : ''}`;
             li.setAttribute('role', 'option');
+            li.tabIndex = 0;
+            li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectModel(m); pill.focus(); } });
             li.setAttribute('aria-selected', isActive ? 'true' : 'false');
 
             const mainWrap = document.createElement('div');
@@ -141,6 +144,9 @@ export function initHeaderModelSwitcher({ onModelChange, onOpenFullSettings }) {
     }
 
     function updateDisplay() {
+        const cfg = PROVIDERS_CONFIG[state.config.provider];
+        pill.disabled = Boolean(cfg?.isTTS);
+        if (cfg?.isTTS) { nameEl.textContent = cfg.name; closePopover(); return; }
         if (!state.selectedModel) {
             if (nameEl) nameEl.textContent = 'Pilih Model';
             return;
@@ -184,6 +190,7 @@ export function initHeaderModelSwitcher({ onModelChange, onOpenFullSettings }) {
     });
 
     if (searchInput) {
+        searchInput.addEventListener('keydown', e => { if (e.key === 'ArrowDown') { e.preventDefault(); listEl.querySelector('[role=option]')?.focus(); } });
         searchInput.addEventListener('input', () => {
             renderList(searchInput.value);
         });

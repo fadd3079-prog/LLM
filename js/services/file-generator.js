@@ -1,3 +1,4 @@
+import { loadScript } from '../utils/dependencies.js';
 /**
  * Service untuk pembuatan dan pengunduhan berbagai format file dari percakapan AI
  */
@@ -158,7 +159,7 @@ export async function exportMessageAsPDF(contentElement, titlePrefix = 'Laporan_
         align-items: center;
     `;
     docHeader.innerHTML = `
-        <span style="font-weight: 700; font-size: 13pt; color: #1e293b; letter-spacing: -0.01em;">AI Workspace • Laporan Riset & Dokumen Eksekutif</span>
+        <span style="font-weight: 700; font-size: 13pt; color: #1e293b; letter-spacing: -0.01em;">AI Workspace</span>
         <span style="font-size: 9pt; color: #64748b;">${new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
     `;
 
@@ -175,7 +176,7 @@ export async function exportMessageAsPDF(contentElement, titlePrefix = 'Laporan_
     `;
     docFooter.innerHTML = `
         <span>Dihasilkan secara instan oleh AI Workspace</span>
-        <span>Dokumen Resmi AI</span>
+        <span>Dokumen percakapan</span>
     `;
 
     printContainer.appendChild(docHeader);
@@ -215,7 +216,8 @@ export async function exportMessageAsPDF(contentElement, titlePrefix = 'Laporan_
         bq.style.cssText = 'border-left: 3px solid #3b82f6; background: #f8fafc; padding: 10px 14px; margin: 14px 0; color: #334155; border-radius: 0 6px 6px 0;';
     });
 
-    // Coba ekspor menggunakan html2pdf jika tersedia
+    await loadScript('vendor/html2pdf.bundle.min.js');
+    // Ekspor menggunakan dependency lokal yang dimuat saat dibutuhkan.
     if (typeof window.html2pdf !== 'undefined') {
         const opt = {
             margin: [10, 10, 10, 10],
